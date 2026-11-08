@@ -1,0 +1,17 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        Everything that does not change with the theme: control templates,
+        spacing, the icon font stack (Segoe Fluent Icons falling back to
+        Segoe MDL2 Assets), and the brush keys that the light and dark
+        dictionaries each fill in.
+
+        Phase 0 defines the keys; Phase 1 styles the editor and toolbars
+        against them. Section 2.1: if the WPF Fluent theme costs more than
+        150 ms at startup, these hand-made dictionaries are used instead.
+    -->
+
+    <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+
+</ResourceDictionary>

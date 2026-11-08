@@ -1,0 +1,20 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        Dark theme brushes. Dark Paper is deliberately separate: it darkens
+        the page itself rather than the window chrome, so it stays a setting
+        of its own.
+
+        Phase 0 defines the keys; Phase 1 styles the editor and toolbars
+        against them. Section 2.1: if the WPF Fluent theme costs more than
+        150 ms at startup, these hand-made dictionaries are used instead.
+    -->
+
+    <SolidColorBrush x:Key="WindowBackground" Color="#202020" />
+    <SolidColorBrush x:Key="WindowForeground" Color="#F2F2F2" />
+    <SolidColorBrush x:Key="PaperBackground" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="ChromeBackground" Color="#2B2B2B" />
+    <SolidColorBrush x:Key="BorderBrushSoft" Color="#3D3D3D" />
+
+</ResourceDictionary>

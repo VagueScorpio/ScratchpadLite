@@ -1,0 +1,14 @@
+<Window x:Class="ScratchpadLite.App.UI.Dialogs.SpecialChars"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Special Character"
+        SizeToContent="WidthAndHeight"
+        ResizeMode="CanResizeWithGrip"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+
+    <!-- Phase 6. Shell only: the layout is built when that phase runs. -->
+    <TextBlock Margin="24" MaxWidth="460" TextWrapping="Wrap" Opacity="0.6"
+               Text="SpecialChars - built in Phase 6." />
+
+</Window>

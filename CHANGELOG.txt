@@ -1,0 +1,102 @@
+Scratchpad Lite - Changelog
+===========================
+
+Every change gets a section with its version and date, and What / Why / How
+underneath. Old entries are never removed.
+
+
+Contents
+--------
+
+  v1.0  2026-11-08  Phase 0: skeleton and pipeline
+
+
+--------------------------------------------------------------------------------
+v1.0  -  2026-11-08  -  Phase 0: skeleton and pipeline
+--------------------------------------------------------------------------------
+
+What
+----
+
+The project outline, and the parts of it that have to work before anything can
+be built on top:
+
+  * Solution (ScratchpadLite.slnx) with four projects: ScratchpadLite.Core,
+    ScratchpadLite.App, and a test project for each.
+  * Directory.Build.props as the one place the version lives, with nullable
+    reference types on, the latest language version, and warnings as errors.
+  * AppPaths: the program folder from AppContext.BaseDirectory, the data folder
+    beside the .exe when that is writable and in LocalAppData when it is not,
+    the font folder, and the --fonts override for development and tests.
+  * Settings: a record with the Section 6.2 defaults, source-generated JSON,
+    written atomically, falling back to defaults when the file is missing or
+    damaged.
+  * Log: a rolling daily file in data/logs, 1 MB per file, 7 days kept, opened
+    lazily on its first write so startup pays nothing for it.
+  * CommandLineOptions: file paths, --measure-startup, --debug, --fonts.
+  * App: the startup sequence, with crash handlers for the UI thread, the
+    app domain and unobserved tasks.
+  * StartupTimer and --measure-startup.
+  * MainWindow: the window with the full menu structure from Section 8.1 and a
+    status bar. Items whose phase has not arrived are disabled rather than
+    missing, so later phases wire up menus that already exist.
+  * Theme dictionaries (Shared, Light, Dark) and ThemeManager.
+  * The whole source tree from Section 5.1, each file carrying the blueprint
+    section it implements and the phase it is due.
+  * build/build.ps1: tests, publish, font bundle, documents, the startup
+    measurement, the zip, and the sizes and hash.
+  * fonts/README.txt, and the font folder left otherwise untouched.
+  * 13 tests passing (command line, settings, paths, startup timer).
+
+Why
+---
+
+Phase 0 exists to make the later phases cheap. Three things in particular had
+to be settled before any feature work:
+
+  * Where files live. A portable app that guesses wrong about its data folder
+    is broken on a USB stick and broken in Program Files, and that is hard to
+    retrofit, so AppPaths and the read-only fallback come first.
+  * The startup budget. Section 2.1 is the top-priority rule in the blueprint,
+    and a budget nobody can measure is not a budget. The timer, the hidden
+    measurement flag and the median in build.ps1 exist so every later phase can
+    be checked against the number rather than against an impression.
+  * The shape of the tree. Every file in Section 5.1 is present as a documented
+    stub, so a phase starts by filling in a file that already knows what it is
+    for, and nothing has to be reorganised halfway through.
+
+The full menu structure is in the window for the same reason: the shortcut table
+in Section 8.3 only works if every shortcut is defined in one place, and that is
+much easier to keep true from the start than to impose later.
+
+How
+---
+
+  * ScratchpadLite.Core targets plain net10.0, with no WPF reference. That is
+    not a convention to remember; the compiler refuses the alternative, which is
+    what keeps the format and font code testable without a window.
+  * Everything that costs time at startup is deliberately on the far side of
+    ContentRendered: fonts, recovery, spell check, the format libraries and the
+    timers all start after the first frame, and App.OnStartup carries a comment
+    saying so, because that is where the budget gets lost.
+  * The format registry keeps names and extensions in a static table and creates
+    each handler through Lazy<T>, so building an Open dialog filter loads no
+    format package and .NET never pulls in the Open XML SDK at startup.
+  * --measure-startup needed one thing the blueprint did not mention: this is a
+    WinExe, so it has no console and a plain Console.WriteLine goes nowhere.
+    It attaches to the console of the process that launched it, which is what
+    lets build.ps1 read the number; a double click fails the attach harmlessly
+    and the value is still in the log.
+  * One deviation from Section 11.1, noted in the .csproj: SupportedOSPlatform-
+    Version 10.0.17763.0 is rejected on a bare net10.0-windows TFM, whose
+    TargetPlatformVersion is 7.0. Raising it means a net10.0-windows10.0.x TFM,
+    which pulls in the Windows SDK WinRT projections. Nothing here uses WinRT -
+    spell check comes through WPF and the dark title bar through a DWM P/Invoke -
+    and Section 2.1 says a dependency has to earn its place, so the TFM stays
+    lean and the Windows 10 1809 floor is declared in app.manifest and the
+    README instead.
+  * A placeholder app.ico is generated into Resources; it is a plain mark and
+    is meant to be replaced.
+  * Two dialog classes are named ParagraphDialog and PageSetupDialog rather than
+    Paragraph and PageSetup, because those two names are already taken by WPF
+    and by the IR respectively, and a type that shadows either one is a trap.

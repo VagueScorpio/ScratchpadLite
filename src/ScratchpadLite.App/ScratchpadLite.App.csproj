@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>ScratchpadLite.App</RootNamespace>
+    <AssemblyName>ScratchpadLite</AssemblyName>
+    <ApplicationIcon>Resources\app.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+
+    <!-- Section 11.1 asks for SupportedOSPlatformVersion 10.0.17763.0, but the
+         SDK rejects that on a bare net10.0-windows TFM, whose TargetPlatformVersion
+         is 7.0 (NETSDK1135). Raising it means moving to a net10.0-windows10.0.x
+         TFM, which pulls in the Windows SDK WinRT projections. Nothing in this
+         app uses WinRT (spell check comes through WPF, the dark title bar through
+         a DWM P/Invoke), and Section 2.1 says every dependency must earn its
+         place, so the TFM stays lean and the Windows 10 1809 floor is declared
+         in app.manifest and the README instead. Revisit only if a feature
+         genuinely needs a WinRT API. -->
+  </PropertyGroup>
+
+  <!-- Publish settings (Section 11.1). Speed over size: compression off,
+       ReadyToRun on. Phase 0 measures the three variants and we keep the
+       fastest. -->
+  <PropertyGroup>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
+    <PublishTrimmed>false</PublishTrimmed>
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ScratchpadLite.Core\ScratchpadLite.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Most of this project is internal: the editor, services and bridge are
+         not a public API. The test project needs to see them (Section 10.1). -->
+    <InternalsVisibleTo Include="ScratchpadLite.App.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Resources\default-styles.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Resources\font-folder-README.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

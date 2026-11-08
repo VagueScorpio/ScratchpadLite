@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Plain net10.0 on purpose: the compiler then enforces the Section 4.2
+         dependency rule that Core never references WPF. -->
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>ScratchpadLite.Core</RootNamespace>
+    <AssemblyName>ScratchpadLite.Core</AssemblyName>
+    <IsAotCompatible>false</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Adobe Glyph List, used by the Type 1 converter (Section 6.6.4).
+         Embedded so the single-file .exe carries it. -->
+    <EmbeddedResource Include="..\ScratchpadLite.App\Resources\glyphlist.txt"
+                      Link="Resources\glyphlist.txt"
+                      Condition="Exists('..\ScratchpadLite.App\Resources\glyphlist.txt')" />
+  </ItemGroup>
+
+  <!-- Packages are added per phase, never up front (Section 2.1 "lean code rules"):
+         Phase 4: DocumentFormat.OpenXml (MIT)                  - DOCX
+         Phase 5: Markdig (BSD-2)                               - Markdown reading
+         Phase 7: System.Text.Encoding.CodePages (MIT)          - Windows-1252 TXT
+       Record each one in THIRD_PARTY_LICENSES.txt when it is added. -->
+
+</Project>

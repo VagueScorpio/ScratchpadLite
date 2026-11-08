@@ -1,0 +1,13 @@
+<Project>
+  <PropertyGroup>
+    <!-- THE single source of truth for the app version (Section 0: Versioning). -->
+    <Version>1.0</Version>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Company>Stephen</Company>
+    <Product>Scratchpad Lite</Product>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+</Project>

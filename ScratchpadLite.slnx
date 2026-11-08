@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ScratchpadLite.Core/ScratchpadLite.Core.csproj" />
+    <Project Path="src/ScratchpadLite.App/ScratchpadLite.App.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ScratchpadLite.Core.Tests/ScratchpadLite.Core.Tests.csproj" />
+    <Project Path="tests/ScratchpadLite.App.Tests/ScratchpadLite.App.Tests.csproj" />
+  </Folder>
+</Solution>

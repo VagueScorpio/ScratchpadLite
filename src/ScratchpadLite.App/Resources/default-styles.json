@@ -1,0 +1,78 @@
+{
+  "$comment": "The default paragraph style sheet (Section 6.5). Copied to data/styles.json on first run so it can be edited without touching the .exe. Sizes are points.",
+  "styles": [
+    {
+      "name": "Normal",
+      "family": "Calibri",
+      "sizePt": 11,
+      "spaceAfterPt": 8,
+      "lineSpacing": 1.15
+    },
+    {
+      "name": "Title",
+      "sizePt": 26,
+      "spaceAfterPt": 12
+    },
+    {
+      "name": "Subtitle",
+      "sizePt": 15,
+      "color": "#666666"
+    },
+    {
+      "name": "Heading 1",
+      "sizePt": 20,
+      "bold": true,
+      "spaceBeforePt": 18,
+      "spaceAfterPt": 6,
+      "outlineLevel": 1
+    },
+    {
+      "name": "Heading 2",
+      "sizePt": 16,
+      "bold": true,
+      "spaceBeforePt": 14,
+      "spaceAfterPt": 4,
+      "outlineLevel": 2
+    },
+    {
+      "name": "Heading 3",
+      "sizePt": 14,
+      "bold": true,
+      "spaceBeforePt": 12,
+      "spaceAfterPt": 4,
+      "outlineLevel": 3
+    },
+    {
+      "name": "Heading 4",
+      "sizePt": 12,
+      "bold": true,
+      "outlineLevel": 4
+    },
+    {
+      "name": "Heading 5",
+      "sizePt": 11,
+      "bold": true,
+      "outlineLevel": 5
+    },
+    {
+      "name": "Heading 6",
+      "sizePt": 11,
+      "bold": true,
+      "italic": true,
+      "outlineLevel": 6
+    },
+    {
+      "name": "Quote",
+      "sizePt": 11,
+      "italic": true,
+      "indentLeftPt": 36,
+      "color": "#666666"
+    },
+    {
+      "name": "Code",
+      "family": "Consolas",
+      "sizePt": 10,
+      "shading": "#F2F2F2"
+    }
+  ]
+}

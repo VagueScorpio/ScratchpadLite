@@ -1,0 +1,17 @@
+# Adobe Glyph List (AGL) - PLACEHOLDER
+#
+# Phase 3 replaces this file with the real Adobe Glyph List, which is
+# BSD-3 licensed and published by Adobe at:
+#   https://github.com/adobe-type-tools/agl-aglfn
+#
+# It maps a Type 1 glyph name to a Unicode code point, which is what lets the
+# Type 1 converter give the font it generates a real cmap table (Section 6.6.4).
+#
+# Format is one entry per line:  <glyph name>;<code point(s), hex, space separated>
+#
+# A few lines, so the loader has something to parse before Phase 3:
+A;0041
+B;0042
+a;0061
+b;0062
+space;0020

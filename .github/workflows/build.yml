@@ -1,0 +1,47 @@
+name: build
+
+# Section 11.3: a tag build that attaches the portable zip to the release, plus
+# a manual run for checking a branch. Not a push-on-every-commit workflow -
+# build.ps1 publishes a self-contained .exe and runs five startup measurements,
+# which is not something to do on every push.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build and package
+        shell: pwsh
+        # The startup numbers this prints come from a shared GitHub runner, so
+        # treat them as a smoke test, not as the budget check. The real warm and
+        # cold numbers are measured on a real PC at each phase gate (Section 2.1).
+        run: ./build/build.ps1
+
+      - name: Upload the zip as a build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ScratchpadLite-windows-x64
+          path: dist/*.zip
+          if-no-files-found: error
+
+      - name: Attach the zip to the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
+          fail_on_unmatched_files: true

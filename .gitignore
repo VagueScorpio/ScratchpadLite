@@ -1,0 +1,27 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+dist/
+*.user
+*.suo
+.vs/
+
+# Source and release bundles produced at phase gates
+ScratchpadLite-v*.zip
+
+# Runtime data folder (created on first run, never committed)
+data/
+
+# Bundled fonts are not committed (Section 5.1: licenses / size).
+# Keep only the README that ships with the folder.
+fonts/*
+!fonts/README.txt
+
+# Test-only font and document fixtures are large and not shipped.
+tests/Fixtures/Fonts/*
+!tests/Fixtures/Fonts/README.txt
+tests/Fixtures/Docs/*
+!tests/Fixtures/Docs/README.txt
+
+# Multicore JIT profile
+*.profile

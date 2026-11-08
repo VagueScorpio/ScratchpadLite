@@ -1,0 +1,19 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        Light theme brushes. ThemeManager merges exactly one of Light or
+        Dark at a time, so only the one in use is ever loaded.
+
+        Phase 0 defines the keys; Phase 1 styles the editor and toolbars
+        against them. Section 2.1: if the WPF Fluent theme costs more than
+        150 ms at startup, these hand-made dictionaries are used instead.
+    -->
+
+    <SolidColorBrush x:Key="WindowBackground" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="WindowForeground" Color="#1A1A1A" />
+    <SolidColorBrush x:Key="PaperBackground" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="ChromeBackground" Color="#F3F3F3" />
+    <SolidColorBrush x:Key="BorderBrushSoft" Color="#D6D6D6" />
+
+</ResourceDictionary>

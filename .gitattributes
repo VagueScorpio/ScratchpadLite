@@ -1,0 +1,21 @@
+# Windows-only project: keep text files CRLF in the working tree and in the
+# shipped zip, so the .txt documents open correctly in Notepad.
+* text=auto eol=crlf
+
+# Binary, never converted.
+*.ico binary
+*.ttf binary
+*.otf binary
+*.ttc binary
+*.otc binary
+*.woff binary
+*.woff2 binary
+*.pfb binary
+*.pfm binary
+*.dfont binary
+*.eot binary
+*.docx binary
+*.odt binary
+*.pdf binary
+*.zip binary
+*.png binary

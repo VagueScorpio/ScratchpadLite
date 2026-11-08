@@ -1,0 +1,16 @@
+<Application x:Class="ScratchpadLite.App.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- No StartupUri: the window is created in OnStartup so the command line,
+         the single-instance check and the theme run first (Section 4.3). -->
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- Shared holds everything theme-independent. ThemeManager swaps
+                     the light or dark dictionary in at index 1 (Section 6.16). -->
+                <ResourceDictionary Source="UI/Themes/Shared.xaml" />
+                <ResourceDictionary Source="UI/Themes/Light.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

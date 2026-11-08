@@ -1,0 +1,9 @@
+<UserControl x:Class="ScratchpadLite.App.UI.Dialogs.FindReplaceBar"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Phase 7. Shell only: the layout is built when that phase runs. -->
+    <TextBlock Margin="24" MaxWidth="460" TextWrapping="Wrap" Opacity="0.6"
+               Text="FindReplaceBar - built in Phase 7." />
+
+</UserControl>

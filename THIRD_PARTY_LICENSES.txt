@@ -1,0 +1,86 @@
+Scratchpad Lite - Third-Party Licenses
+=====================================
+
+Every package in the shipped application is recorded here, with its license and
+why it is in the build. Allowed licenses are MIT, BSD, Apache 2.0, MS-PL and
+SIL OFL. No paid or license-key libraries, ever.
+
+A package is added only when what is built into .NET genuinely will not do, and
+the cost it adds to startup time and to the size of the .exe is measured and
+recorded when it goes in.
+
+
+Shipped in the application
+--------------------------
+
+  Phase 0: none.
+
+  The .NET 10 runtime and WPF are inside the single-file .exe. They are
+  Microsoft's, under the MIT license:
+  https://github.com/dotnet/runtime/blob/main/LICENSE.TXT
+  https://github.com/dotnet/wpf/blob/main/LICENSE.TXT
+
+
+Planned, with the phase that adds them
+--------------------------------------
+
+  DocumentFormat.OpenXml                              Phase 4
+    License  MIT
+    Why      Reading and writing .docx. It is Microsoft's own Open XML SDK,
+             actively maintained, and the only complete option.
+    Note     Loaded lazily through FormatRegistry, so it costs nothing at
+             startup. Record its startup and size cost when it is added.
+
+  Markdig                                             Phase 5
+    License  BSD-2-Clause
+    Why      Reading Markdown. The standard .NET Markdown parser. Writing
+             Markdown is hand-written, so only the reader needs it.
+    Note     Also lazily loaded.
+
+  System.Text.Encoding.CodePages                      Phase 4 or 5
+    License  MIT
+    Why      Windows-1252 text files. .NET Core dropped the legacy code pages,
+             and plenty of .txt files out there are not UTF-8.
+
+
+Deliberately not used
+---------------------
+
+  Aspose, Syncfusion, Telerik, DevExpress, Spire and similar: paid or
+  license-key libraries, excluded by the project rules.
+
+  WOFF, WOFF2, Type 1, .dfont, .eot and .t42 handling is hand-written, because
+  no maintained free .NET library covers them. The WOFF2 decoder follows the
+  logic of Google's woff2 reference implementation, which is MIT licensed, using
+  the Brotli and zlib support built into .NET:
+  https://github.com/google/woff2
+
+  ODT reading and writing is hand-written on ZipArchive and System.Xml.Linq, for
+  the same reason.
+
+  Icons come from the Windows icon fonts (Segoe Fluent Icons on Windows 11,
+  Segoe MDL2 Assets on Windows 10). They are already on every Windows PC, so
+  there is nothing to ship or license.
+
+
+Embedded resources
+------------------
+
+  Adobe Glyph List (AGL)                              Phase 3
+    License  BSD-3-Clause
+    Source   https://github.com/adobe-type-tools/agl-aglfn
+    Why      Mapping Type 1 glyph names to Unicode, so a converted Type 1 font
+             gets a real cmap table.
+    Note     Resources/glyphlist.txt is a placeholder until Phase 3.
+
+
+Test-only
+---------
+
+  xUnit                     Apache 2.0    test framework
+  xunit.runner.visualstudio Apache 2.0    test runner
+  Microsoft.NET.Test.Sdk    MIT           test host
+  Xunit.StaFact             MIT           runs WPF tests on an STA thread
+
+  Test fixture fonts and documents are test-only and never shipped. Record each
+  fixture's source and license in tests/Fixtures/Fonts/README.txt.
