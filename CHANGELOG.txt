@@ -100,3 +100,33 @@ How
   * Two dialog classes are named ParagraphDialog and PageSetupDialog rather than
     Paragraph and PageSetup, because those two names are already taken by WPF
     and by the IR respectively, and a type that shadows either one is a trap.
+
+
+The three-way publish measurement (Section 11.1)
+------------------------------------------------
+
+Run with `build.ps1 -MeasureVariants` on this PC. Each number is the median of
+runs 2 to 5 of --measure-startup; run 1 is reported separately because it also
+prepares the fonts.
+
+    Variant                                     exe size    startup
+    1  compression off, native libs in the exe   141.2 MB     524 ms
+    2  compression off, native libs beside it    133.3 MB     559 ms
+    3  compression on (comparison only)           63.5 MB     746 ms
+
+Kept: variant 1, which is what the .csproj already had.
+
+It is the fastest and it is also the one that keeps the app a single file, so
+there was nothing to weigh up and nothing to ask about. Variant 2 saves 8 MB,
+is 35 ms slower, and scatters native DLLs beside the .exe; it loses on both
+counts.
+
+Turning compression on is the real trade: it cuts the .exe from 141 MB to
+63 MB, and costs 222 ms, which is 42% of the startup budget for a file size
+nobody sees after the first unzip. Section 2.1 says speed wins when speed and
+size conflict, and this is what that rule was written for.
+
+The shipped zip is 58.5 MB either way, because Compress-Archive compresses the
+uncompressed .exe about as well as the single-file packer would have. That is
+the whole argument against variant 3 in one line: the download is the same size
+and the app opens slower.

@@ -120,6 +120,20 @@ window's first render. Every launch logs it (`startup: 640 ms`) and Help → Abo
 shows the last value. `ScratchpadLite.exe --measure-startup` prints the number
 and exits, which is what the build script takes a median of.
 
+The publish settings were chosen by measurement, not preference
+(`build.ps1 -MeasureVariants`):
+
+| Publish variant | `.exe` | Startup |
+| --- | --- | --- |
+| Compression off, native libraries inside the `.exe` — **in use** | 141 MB | **524 ms** |
+| Compression off, native libraries beside the `.exe` | 133 MB | 559 ms |
+| Compression on | 64 MB | 746 ms |
+
+Compression would cut the `.exe` by more than half and cost 222 ms, which is 42%
+of the budget. The shipped zip comes out at 58 MB either way, because the zip
+compresses the uncompressed `.exe` about as well as the single-file packer does —
+so compression buys nothing a user would notice and costs something they would.
+
 ## Build phases
 
 | Phase | Version | Scope |
