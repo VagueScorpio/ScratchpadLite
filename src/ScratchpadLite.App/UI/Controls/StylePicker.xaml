@@ -2,8 +2,23 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- Phase 1. Shell only: the layout is built when that phase runs. -->
-    <TextBlock Margin="24" MaxWidth="460" TextWrapping="Wrap" Opacity="0.6"
-               Text="StylePicker - built in Phase 1." />
+    <!-- Section 6.5. Each style is drawn in its own formatting, so the list
+         shows what it will do rather than just naming it. The preview size is
+         capped in code: Title at its real 26 pt would make the dropdown huge. -->
 
+    <ComboBox x:Name="Box"
+              Width="132"
+              ToolTip="Paragraph style"
+              SelectionChanged="OnSelectionChanged">
+        <ComboBox.ItemTemplate>
+            <DataTemplate>
+                <TextBlock Text="{Binding Name}"
+                           FontFamily="{Binding PreviewFamily}"
+                           FontSize="{Binding PreviewSizeDip}"
+                           FontWeight="{Binding PreviewWeight}"
+                           FontStyle="{Binding PreviewStyle}"
+                           TextTrimming="CharacterEllipsis" />
+            </DataTemplate>
+        </ComboBox.ItemTemplate>
+    </ComboBox>
 </UserControl>

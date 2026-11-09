@@ -1,9 +1,97 @@
 <UserControl x:Class="ScratchpadLite.App.UI.Toolbars"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:ScratchpadLite.App.UI.Controls">
 
-    <!-- Phase 1. Shell only: the layout is built when that phase runs. -->
-    <TextBlock Margin="24" MaxWidth="460" TextWrapping="Wrap" Opacity="0.6"
-               Text="Toolbars - built in Phase 1." />
+    <!-- Section 8.2. Every glyph is from the Windows icon font (Segoe Fluent
+         Icons on 11, falling back to Segoe MDL2 Assets on 10), so there is
+         nothing to ship or license. Every button carries a tooltip naming its
+         shortcut, which is also the only place those strings are written for
+         the user. -->
 
+    <StackPanel>
+        <!-- Row 1: files, undo, print, and the three pickers. -->
+        <ToolBar x:Name="Row1" ToolBarTray.IsLocked="True">
+            <Button x:Name="NewButton" ToolTip="New tab (Ctrl+N)" Style="{StaticResource IconButton}" Content="&#xE7C3;" />
+            <Button x:Name="OpenButton" ToolTip="Open (Ctrl+O)" Style="{StaticResource IconButton}" Content="&#xE8E5;" />
+            <Button x:Name="SaveButton" ToolTip="Save (Ctrl+S)" Style="{StaticResource IconButton}" Content="&#xE74E;" />
+            <Separator />
+            <Button x:Name="UndoButton" ToolTip="Undo (Ctrl+Z)" Style="{StaticResource IconButton}" Content="&#xE7A7;" />
+            <Button x:Name="RedoButton" ToolTip="Redo (Ctrl+Y)" Style="{StaticResource IconButton}" Content="&#xE7A6;" />
+            <Separator />
+            <Button x:Name="PrintButton" ToolTip="Print (Ctrl+P)" Style="{StaticResource IconButton}" Content="&#xE749;" />
+            <Separator />
+            <controls:StylePicker x:Name="StyleBox" />
+            <controls:FontPicker x:Name="FontBox" />
+            <controls:SizePicker x:Name="SizeBox" />
+            <Button x:Name="GrowButton" ToolTip="Grow font (Ctrl+Shift+&gt;)" Style="{StaticResource IconButton}" Content="&#xE8E8;" />
+            <Button x:Name="ShrinkButton" ToolTip="Shrink font (Ctrl+Shift+&lt;)" Style="{StaticResource IconButton}" Content="&#xE8E7;" />
+        </ToolBar>
+
+        <!-- Row 2: character and paragraph formatting. -->
+        <ToolBar x:Name="Row2" ToolBarTray.IsLocked="True">
+            <ToggleButton x:Name="BoldButton" ToolTip="Bold (Ctrl+B)" Style="{StaticResource IconToggle}" Content="&#xE8DD;" />
+            <ToggleButton x:Name="ItalicButton" ToolTip="Italic (Ctrl+I)" Style="{StaticResource IconToggle}" Content="&#xE8DB;" />
+
+            <!-- Underline is a split button: the button applies single, the
+                 arrow chooses the kind (Section 6.8). -->
+            <ToggleButton x:Name="UnderlineButton" ToolTip="Underline (Ctrl+U)" Style="{StaticResource IconToggle}" Content="&#xE8DC;" />
+            <Button x:Name="UnderlineMenuButton" ToolTip="Underline style" Style="{StaticResource IconButton}" Content="&#xE70D;" FontSize="10">
+                <Button.ContextMenu>
+                    <ContextMenu x:Name="UnderlineMenu">
+                        <MenuItem Header="Single" Tag="Single" />
+                        <MenuItem Header="Double" Tag="Double" />
+                        <MenuItem Header="Dotted" Tag="Dotted" />
+                        <MenuItem Header="Dashed" Tag="Dashed" />
+                        <MenuItem Header="Wavy" Tag="Wavy" />
+                        <Separator />
+                        <MenuItem Header="None" Tag="None" />
+                    </ContextMenu>
+                </Button.ContextMenu>
+            </Button>
+
+            <ToggleButton x:Name="StrikeButton" ToolTip="Strikethrough (Alt+Shift+5)" Style="{StaticResource IconToggle}" Content="&#xEDE0;" />
+            <Separator />
+            <ToggleButton x:Name="SuperButton" ToolTip="Superscript (Ctrl+Shift+=)" Style="{StaticResource IconToggle}" Content="&#xE2B5;" />
+            <ToggleButton x:Name="SubButton" ToolTip="Subscript (Ctrl+=)" Style="{StaticResource IconToggle}" Content="&#xE2B4;" />
+            <ToggleButton x:Name="SmallCapsButton" ToolTip="Small caps" Style="{StaticResource IconToggle}" Content="&#xE8D2;" />
+            <Separator />
+            <controls:ColorPicker x:Name="TextColorBox" />
+            <controls:ColorPicker x:Name="HighlightBox" />
+            <Separator />
+            <ToggleButton x:Name="AlignLeftButton" ToolTip="Align left (Ctrl+L)" Style="{StaticResource IconToggle}" Content="&#xE8E4;" />
+            <ToggleButton x:Name="AlignCenterButton" ToolTip="Centre (Ctrl+E)" Style="{StaticResource IconToggle}" Content="&#xE8E3;" />
+            <ToggleButton x:Name="AlignRightButton" ToolTip="Align right (Ctrl+R)" Style="{StaticResource IconToggle}" Content="&#xE8E2;" />
+            <ToggleButton x:Name="AlignJustifyButton" ToolTip="Justify (Ctrl+J)" Style="{StaticResource IconToggle}" Content="&#xE8E1;" />
+            <Separator />
+
+            <!-- Lists and the insert buttons are Phase 6; they sit here now so
+                 the toolbar does not get rearranged later. -->
+            <Button x:Name="BulletsButton" ToolTip="Bulleted list (Ctrl+Shift+8)" Style="{StaticResource IconButton}" Content="&#xE8FD;" IsEnabled="False" />
+            <Button x:Name="NumberingButton" ToolTip="Numbered list (Ctrl+Shift+7)" Style="{StaticResource IconButton}" Content="&#xE8FE;" IsEnabled="False" />
+            <Button x:Name="OutdentButton" ToolTip="Decrease indent" Style="{StaticResource IconButton}" Content="&#xE7FE;" />
+            <Button x:Name="IndentButton" ToolTip="Increase indent" Style="{StaticResource IconButton}" Content="&#xE7FD;" />
+            <Separator />
+
+            <Button x:Name="LineSpacingButton" ToolTip="Line spacing" Style="{StaticResource IconButton}" Content="&#xE8FF;">
+                <Button.ContextMenu>
+                    <ContextMenu x:Name="LineSpacingMenu">
+                        <MenuItem Header="1.0" Tag="1.0" />
+                        <MenuItem Header="1.15" Tag="1.15" />
+                        <MenuItem Header="1.5" Tag="1.5" />
+                        <MenuItem Header="2.0" Tag="2.0" />
+                        <Separator />
+                        <MenuItem Header="Paragraph..." Tag="custom" />
+                    </ContextMenu>
+                </Button.ContextMenu>
+            </Button>
+            <Separator />
+            <Button x:Name="InsertImageButton" ToolTip="Insert image" Style="{StaticResource IconButton}" Content="&#xE91B;" IsEnabled="False" />
+            <Button x:Name="InsertTableButton" ToolTip="Insert table" Style="{StaticResource IconButton}" Content="&#xE80A;" IsEnabled="False" />
+            <Button x:Name="InsertLinkButton" ToolTip="Insert link (Ctrl+K)" Style="{StaticResource IconButton}" Content="&#xE71B;" IsEnabled="False" />
+            <Separator />
+            <Button x:Name="ClearFormattingButton" ToolTip="Clear formatting (Ctrl+Space)" Style="{StaticResource IconButton}" Content="&#xE75C;" />
+            <ToggleButton x:Name="FormatPainterButton" ToolTip="Format painter (double-click to keep on)" Style="{StaticResource IconToggle}" Content="&#xE7A8;" />
+        </ToolBar>
+    </StackPanel>
 </UserControl>

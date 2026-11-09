@@ -2,19 +2,32 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!--
-        Dark theme brushes. Dark Paper is deliberately separate: it darkens
-        the page itself rather than the window chrome, so it stays a setting
-        of its own.
+        Dark theme brushes. The keys match Light.xaml exactly: anything defined
+        in one and not the other would fall back to nothing and render as a
+        missing brush, so the two files are kept in step deliberately.
 
-        Phase 0 defines the keys; Phase 1 styles the editor and toolbars
-        against them. Section 2.1: if the WPF Fluent theme costs more than
-        150 ms at startup, these hand-made dictionaries are used instead.
+        Dark Paper is separate from this (Section 6.16): with the dark theme on
+        and Dark Paper off, the window is dark and the page is still white.
     -->
 
     <SolidColorBrush x:Key="WindowBackground" Color="#202020" />
     <SolidColorBrush x:Key="WindowForeground" Color="#F2F2F2" />
-    <SolidColorBrush x:Key="PaperBackground" Color="#FFFFFF" />
     <SolidColorBrush x:Key="ChromeBackground" Color="#2B2B2B" />
     <SolidColorBrush x:Key="BorderBrushSoft" Color="#3D3D3D" />
+    <SolidColorBrush x:Key="AccentBrush" Color="#4FA3F7" />
+
+    <SolidColorBrush x:Key="ControlHover" Color="#383838" />
+    <SolidColorBrush x:Key="ControlPressed" Color="#454545" />
+    <SolidColorBrush x:Key="ControlChecked" Color="#1E3A5F" />
+    <SolidColorBrush x:Key="ControlMixed" Color="#333333" />
+
+    <SolidColorBrush x:Key="EditorSurfaceBackground" Color="#171717" />
+    <SolidColorBrush x:Key="PaperBackground" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="PaperForeground" Color="#000000" />
+    <SolidColorBrush x:Key="PaperBorder" Color="#000000" />
+    <SolidColorBrush x:Key="PaperShadow" Color="#000000" />
+
+    <SolidColorBrush x:Key="PaperBackgroundDark" Color="#1E1E1E" />
+    <SolidColorBrush x:Key="PaperForegroundDark" Color="#E8E8E8" />
 
 </ResourceDictionary>

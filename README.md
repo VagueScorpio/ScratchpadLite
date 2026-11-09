@@ -5,11 +5,12 @@ no .NET runtime, no Office, nothing else needed on the PC.
 
 Windows 10 (version 1809 or later) and Windows 11, x64.
 
-> **Status: Phase 0 — skeleton and pipeline.**
-> The solution, both projects, both test projects, the paths, settings, logging,
-> crash handlers, startup measurement, the window with its full menu structure
-> and the build script are in place. The editor itself arrives in Phase 1.
-> [Build Phases](#build-phases) below tracks what lands when.
+> **Status: Phase 1 — editor core.**
+> You can type and format: all the character formatting, the paragraph styles,
+> alignment, indents and spacing, the pickers, both toolbar rows, the status bar,
+> zoom and the page view. Files, fonts from the `fonts/` folder, tabs, find and
+> spell check are still ahead — [Build Phases](#build-phases) tracks what lands
+> when.
 
 ## What it will do
 
@@ -121,7 +122,9 @@ shows the last value. `ScratchpadLite.exe --measure-startup` prints the number
 and exits, which is what the build script takes a median of.
 
 The publish settings were chosen by measurement, not preference
-(`build.ps1 -MeasureVariants`):
+(`build.ps1 -MeasureVariants`). These numbers are from the Phase 0 build — it
+is the comparison between the three that settled the choice, and the current
+startup figure is in [CHANGELOG.txt](CHANGELOG.txt):
 
 | Publish variant | `.exe` | Startup |
 | --- | --- | --- |
@@ -139,7 +142,7 @@ so compression buys nothing a user would notice and costs something they would.
 | Phase | Version | Scope |
 | --- | --- | --- |
 | 0 | v1.0 | Skeleton and pipeline — **done** |
-| 1 | v1.1 | Editor core: all formatting, styles, toolbars, shortcuts, status bar |
+| 1 | v1.1 | Editor core: all formatting, styles, toolbars, shortcuts, status bar — **done** |
 | 2 | v1.2 | Fonts: index, cache, WOFF and WOFF2, font picker, Font Report |
 | 3 | v1.3 | More font formats: Type 1, Mac containers, EOT, Type 42 |
 | 4 | v1.4 | IR, the bridge, TXT and DOCX |

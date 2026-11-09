@@ -8,7 +8,187 @@ underneath. Old entries are never removed.
 Contents
 --------
 
+  v1.1  2026-11-08  Phase 1: editor core
   v1.0  2026-11-08  Phase 0: skeleton and pipeline
+
+
+--------------------------------------------------------------------------------
+v1.1  -  2026-11-08  -  Phase 1: editor core
+--------------------------------------------------------------------------------
+
+What
+----
+
+The editor, and all the formatting the blueprint asks for in Sections 6.4 to
+6.10:
+
+  * EditorView: a RichTextBox on a page-width sheet of paper, with the paper
+    shadow, Page Width and Full Width, zoom from 50% to 400% from the View
+    menu, the status bar slider and Ctrl with the mouse wheel.
+  * Character formatting: bold, italic, strikethrough, five underline kinds
+    (single, double, dotted, dashed, wavy), superscript, subscript, small caps,
+    font family, font size, text color, highlight color, and Change Case in
+    four modes.
+  * Paragraph formatting: the eleven styles from Section 6.5 (Normal, Title,
+    Subtitle, Heading 1-6, Quote, Code), alignment, left and right indent,
+    first-line indent, line spacing, space before and after, and Clear
+    Formatting.
+  * StyleSheet: the built-in sheet as an embedded resource, written out to
+    data/styles.json on first run and read back from there afterwards, so a
+    user's edits win and are never overwritten. An unknown style name falls
+    back to Normal.
+  * SpProps: attached properties for the five facts WPF's text engine has no
+    room for - the style name, the requested font, the super/subscript
+    alignment, the base font size behind it, and which of the five underline
+    kinds a decoration is.
+  * The pickers: style (with a preview of each style), font, size (the preset
+    list or any size typed, half sizes included), and color (a 25-swatch
+    palette, recent colors, and a hex box).
+  * Two toolbar rows, and a status bar with word and character counts, the
+    caret position, the format readout, the language and the zoom slider.
+  * Format painter, single-use and sticky, and a paste filter.
+  * Commands: all 63 commands and the Section 8.3 shortcuts, defined once.
+  * Themes: Shared, Light and Dark dictionaries, ThemeManager and the dark
+    title bar, brought forward from Phase 8 (see below).
+  * 104 tests passing (35 in Core, 69 in App).
+
+Measured on this PC, publishing the release build:
+
+    warm startup   699 ms median of runs 2-5 (706, 699, 702, 659, 665).
+                   An earlier set of five on the same build gave 672 ms, so
+                   roughly 700 ms with about 40 ms of run-to-run noise.
+    budget         1000 ms warm. Cold is not measured here - it needs a
+                   reboot - and was 2.0 s budgeted.
+    idle memory    143.6 MB working set, 81.6 MB private (three samples
+                   within 0.4 MB of each other)
+    .exe           141.5 MB
+
+Why
+---
+
+Everything after this phase edits a document, so the document had to come
+first, and the two decisions worth recording are about what formatting means
+rather than how it is stored.
+
+Clear Formatting returns a paragraph to its style rather than to nothing. A
+heading with Clear Formatting applied should still be a heading; it is the
+by-hand changes on top that go. That is what Word does and what Section 6.5
+describes, and it is why ClearAllProperties alone is not the whole command -
+the paragraph's style is re-applied afterwards.
+
+Change Case rewrites the letters instead of setting a format. WPF has no
+all-caps character format, so there is nothing to save to a .docx; changing the
+letters themselves means the result survives every format in Section 7, which
+is the point.
+
+The paste filter downgrades XAML to RTF to plain text. WPF offers pasted
+content as XAML, and XAML is not markup here - it is a serialized object graph
+that the control would instantiate. Pasting from a web page should not be able
+to construct objects, so that flavour is dropped before it is read.
+
+Themes arrived two phases early. Section 6.16 puts them in Phase 8, but the
+toolbar button styles need themed brushes to render at all, and a toolbar
+styled against hard-coded colors now would have to be unpicked later. The
+dictionaries, ThemeManager and the dark title bar are therefore in, which is a
+deviation from the phase plan in the direction of less rework.
+
+How
+---
+
+Five things about WPF turned out differently from the blueprint or from the
+obvious implementation. Each one is recorded where it bites, in the code as
+well as here.
+
+  * TextRange cannot carry the attached properties. Sections 6.4 and 6.8 say
+    to store the underline kind, the super/subscript alignment and the base
+    font size through the selection, but TextRange.ApplyPropertyValue and
+    GetPropertyValue accept only WPF's own text-formatting properties and throw
+    ArgumentException - "'Underline' property is not valid for text
+    formatting" - for anything else. This is not a detail; it is the mechanism
+    two sections of the blueprint are built on, and it broke 14 tests.
+    What replaces it: SpProps.ApplyToSelection and ReadFromSelection walk the
+    inline elements the selection covers and set or read the value on each one,
+    and all five properties are registered with
+    FrameworkPropertyMetadataOptions.Inherits so a value set on a span is still
+    readable from the runs inside it. Call order matters and is commented at
+    every call site - the real WPF property goes on first, because applying it
+    is what makes WPF split runs at the selection edges, and the attached
+    property then lands on the runs that now exist.
+
+  * Commands have to be public, and the test suite had to be able to say so.
+    The menus reach the commands with {x:Static}, which XAML resolves at parse
+    time by public reflection. The commands were internal. That compiled
+    without a warning, every unit test passed, and the app threw
+    ArgumentException the instant MainWindow's XAML was parsed - dead before
+    its first frame, on every launch. The real fault was in the tests: each
+    one checked a class in isolation and nothing ever loaded the window.
+    MainWindowTests now builds the real MainWindow, shows it, lays it out and
+    reads the commands back off the menu items, and AppHost gives those tests
+    one STA thread with a real Application so the toolbars find their
+    StaticResource styles. The rule from here: anything the app parses or
+    renders at startup is loaded by a test, not just the classes behind it.
+
+  * Application.ThemeMode is still experimental in .NET 10. It exists, but
+    using it raises WPF0001, and this project builds with warnings as errors,
+    so taking it would mean suppressing a diagnostic that says the API may
+    change. The hand-written Light and Dark dictionaries stay, and a test
+    asserts the two have identical key sets - a key present in one and missing
+    from the other shows up as an unpainted control, which is easy to ship and
+    hard to spot.
+    Writing that test found a second thing: ThemeManager loaded its dictionary
+    from the relative URI "UI/Themes/Light.xaml", and a relative pack URI
+    resolves against the entry assembly. That is this one when the .exe starts
+    the process, and the test runner otherwise, so the theme failed to load
+    with "Cannot locate resource" under test. It now builds the full
+    pack://application URI with this assembly named, taking the name from the
+    assembly rather than a string, and both the app and the tests go through
+    the same method.
+
+  * Undo needs a hosted control. CanUndo is false for every edit on a
+    RichTextBox that is not in a visual tree, a plain text change included, so
+    the first version of the undo tests was asserting something that could not
+    be true. They now show a window with ShowActivated false, which gives a
+    live undo stack, and the test that earns BeginChange/EndChange its place is
+    the double underline: it writes two text decorations and an attached
+    property, and one Ctrl+Z has to take back all of it.
+
+  * The two drawn underlines and the paper shadow are hand-made. WPF offers
+    one underline, so double is two pens at different offsets, dotted and
+    dashed are dash patterns, and wavy is a tiled DrawingBrush of bezier
+    curves; all of them are frozen, since they never change. The paper shadow
+    is two offset borders rather than a DropShadowEffect, because an Effect
+    allocates a render target the size of the whole document.
+
+Two smaller notes:
+
+  * Superscript applied over subscript would have shrunk the text twice, to
+    4.2pt from 10pt, which is why the base size is kept in an attached property
+    and the size is computed from it rather than from the current size. There
+    is a test named for that case.
+  * The selection readout runs at DispatcherPriority.Background behind a 50 ms
+    throttle, and the word count behind a 300 ms timer. Both run on every
+    keystroke otherwise, and typing is the one thing in this app that must
+    never feel slow.
+
+Not built in this phase
+-----------------------
+
+  * Show Formatting Marks. WPF cannot draw paragraph marks and space dots
+    inside a RichTextBox without a custom adorner. The menu item is present and
+    disabled with a tooltip saying so, rather than half-built or quietly
+    missing.
+  * The font picker lists the fonts Windows has. The fonts/ folder, the
+    converted formats and the Font Report are Phase 2 and 3, as planned.
+
+Watch
+-----
+
+Idle working set went from 124.1 MB in Phase 0 to 143.6 MB here, against the
+150 MB in Section 2.1. Private bytes are 81.6 MB and comfortable; the growth is
+in the mapped pages that come with parsing this much more XAML. Phase 2 adds
+the font index, so on the working-set reading the budget is close to spent. The
+question of which figure Section 2.1 means is raised in the Phase 1 report
+rather than decided here.
 
 
 --------------------------------------------------------------------------------

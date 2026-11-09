@@ -61,8 +61,9 @@ public partial class App : Application
         // 4. Settings.
         _settings = Settings.Load(AppPaths.SettingsFile);
 
-        // 5. Theme.
-        //    ThemeManager.Apply(_settings.Theme);   // Phase 0
+        // 5. Theme. One merged dictionary, so this loads the theme in use and
+        //    nothing else (Section 6.16).
+        UI.Themes.ThemeManager.Apply(_settings.Theme);
 
         // 6. The window, with one empty tab or the files from the command line.
         var window = new MainWindow(_settings, _options);
@@ -131,7 +132,12 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
-        _settings.Save(AppPaths.SettingsFile);
+        // Theme, zoom, page view and the window geometry all change in the
+        // window, so the copy to save is the window's, not the one loaded at
+        // startup.
+        var toSave = MainWindow is UI.MainWindow window ? window.CurrentSettings : _settings;
+        toSave.Save(AppPaths.SettingsFile);
+
         Log.Info("exit");
         base.OnExit(e);
     }

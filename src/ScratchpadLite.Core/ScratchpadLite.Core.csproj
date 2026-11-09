@@ -10,10 +10,19 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Adobe Glyph List, used by the Type 1 converter (Section 6.6.4).
-         Embedded so the single-file .exe carries it. -->
+    <!-- Both files live in App\Resources, where Section 5.1 puts them, but Core
+         is what reads them, and embedding is what gets them inside the
+         single-file .exe. LogicalName is set explicitly so the resource name
+         does not depend on how the link path is spelled. -->
+
+    <!-- The default paragraph style sheet (Section 6.5). Copied to
+         data\styles.json on first run so the user can edit it. -->
+    <EmbeddedResource Include="..\ScratchpadLite.App\Resources\default-styles.json"
+                      LogicalName="ScratchpadLite.Core.default-styles.json" />
+
+    <!-- Adobe Glyph List, used by the Type 1 converter (Section 6.6.4). -->
     <EmbeddedResource Include="..\ScratchpadLite.App\Resources\glyphlist.txt"
-                      Link="Resources\glyphlist.txt"
+                      LogicalName="ScratchpadLite.Core.glyphlist.txt"
                       Condition="Exists('..\ScratchpadLite.App\Resources\glyphlist.txt')" />
   </ItemGroup>
 

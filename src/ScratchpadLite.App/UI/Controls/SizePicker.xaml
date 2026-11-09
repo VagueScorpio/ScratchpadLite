@@ -2,8 +2,15 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- Phase 1. Shell only: the layout is built when that phase runs. -->
-    <TextBlock Margin="24" MaxWidth="460" TextWrapping="Wrap" Opacity="0.6"
-               Text="SizePicker - built in Phase 1." />
+    <!-- Section 6.7: editable, so any size from 1 to 1638 can be typed,
+         decimals included. A blank box means the selection has more than one
+         size, which is what Word shows too. -->
 
+    <ComboBox x:Name="Box"
+              Width="62"
+              IsEditable="True"
+              ToolTip="Font size"
+              PreviewKeyDown="OnPreviewKeyDown"
+              LostFocus="OnLostFocus"
+              SelectionChanged="OnSelectionChanged" />
 </UserControl>

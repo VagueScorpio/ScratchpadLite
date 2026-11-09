@@ -2,8 +2,121 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- Phase 1. Shell only: the layout is built when that phase runs. -->
-    <TextBlock Margin="24" MaxWidth="460" TextWrapping="Wrap" Opacity="0.6"
-               Text="ColorPicker - built in Phase 1." />
+    <!-- Section 8.2. "More Colours" is a hex and RGB box in this popup rather
+         than the Windows colour dialog: that dialog lives in WinForms, and
+         referencing WinForms to pick a colour would pull a second UI framework
+         into a single-file .exe for one dialog (Section 2.1). -->
 
+    <Grid>
+        <ToggleButton x:Name="Toggle"
+                      MinWidth="34"
+                      Padding="4,2"
+                      Click="OnToggleClick">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock x:Name="GlyphText"
+                           FontFamily="{DynamicResource IconFont}"
+                           FontSize="14"
+                           VerticalAlignment="Center" />
+                <Border x:Name="CurrentSwatch"
+                        Width="12"
+                        Height="12"
+                        Margin="4,0,0,0"
+                        BorderThickness="1"
+                        BorderBrush="{DynamicResource BorderBrushSoft}"
+                        VerticalAlignment="Center" />
+            </StackPanel>
+        </ToggleButton>
+
+        <Popup x:Name="Flyout"
+               StaysOpen="False"
+               Placement="Bottom"
+               PlacementTarget="{Binding ElementName=Toggle}"
+               AllowsTransparency="True"
+               Closed="OnFlyoutClosed">
+
+            <Border Background="{DynamicResource ChromeBackground}"
+                    BorderBrush="{DynamicResource BorderBrushSoft}"
+                    BorderThickness="1"
+                    Padding="8">
+                <StackPanel Width="188">
+                    <Button x:Name="ClearButton"
+                            Content="Automatic"
+                            HorizontalContentAlignment="Left"
+                            Padding="6,3"
+                            Margin="0,0,0,6"
+                            Click="OnClearClick" />
+
+                    <ItemsControl x:Name="Palette">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Width="22"
+                                        Height="22"
+                                        Margin="1"
+                                        Padding="0"
+                                        ToolTip="{Binding Name}"
+                                        Background="{Binding Brush}"
+                                        BorderBrush="{DynamicResource BorderBrushSoft}"
+                                        BorderThickness="1"
+                                        Click="OnSwatchClick"
+                                        Tag="{Binding}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <TextBlock Text="Recent"
+                               Margin="0,8,0,2"
+                               Opacity="0.7"
+                               FontSize="11" />
+
+                    <ItemsControl x:Name="Recent">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Width="22"
+                                        Height="22"
+                                        Margin="1"
+                                        Padding="0"
+                                        ToolTip="{Binding Name}"
+                                        Background="{Binding Brush}"
+                                        BorderBrush="{DynamicResource BorderBrushSoft}"
+                                        BorderThickness="1"
+                                        Click="OnSwatchClick"
+                                        Tag="{Binding}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <Separator Margin="0,8" />
+
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Hex" VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBox x:Name="HexBox"
+                                 Width="92"
+                                 MaxLength="7"
+                                 KeyDown="OnHexKeyDown" />
+                        <Button Content="Apply"
+                                Margin="6,0,0,0"
+                                Padding="6,2"
+                                Click="OnHexApplyClick" />
+                    </StackPanel>
+
+                    <TextBlock x:Name="HexError"
+                               Text="Use #RRGGBB."
+                               FontSize="11"
+                               Margin="0,4,0,0"
+                               Foreground="#C62828"
+                               Visibility="Collapsed" />
+                </StackPanel>
+            </Border>
+        </Popup>
+    </Grid>
 </UserControl>

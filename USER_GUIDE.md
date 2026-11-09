@@ -44,7 +44,7 @@ If the program folder is read-only — in `Program Files`, say, or on a locked-d
 PC — the app says so once and keeps its settings in
 `%LOCALAPPDATA%\ScratchpadLite` instead. Nothing else changes.
 
-## Formatting text **(not yet — Phase 1)**
+## Formatting text
 
 ### Characters
 
@@ -76,7 +76,10 @@ You can edit the styles yourself: `data/styles.json` holds them in plain text.
 
 Pick from the list or type any size you like, half sizes included — `10.5` works.
 
-## Fonts **(not yet — Phase 2 and 3)**
+## Fonts
+
+> Phase 1 lists the fonts Windows has. The `fonts/` folder, the converted
+> formats and the Font Report arrive in Phases 2 and 3.
 
 The font picker shows every font Windows has, plus the bundled collection, plus
 anything you put in the `fonts/` folder next to the `.exe`.
@@ -182,7 +185,9 @@ a format that would lose formatting, a read-only file, or a file that changed on
 disk behind your back. Hovering the indicator explains why a document was
 skipped.
 
-## Finding, spelling, counting **(not yet — Phase 7)**
+## Finding, spelling, counting
+
+> Word Count works now. Find, Replace and spell check arrive in Phase 7.
 
 **Find** (Ctrl+F) and **Replace** (Ctrl+H) open a bar rather than a dialog, so
 the document stays visible. Match case, whole word and wrap-around are there,
@@ -205,13 +210,20 @@ If **Restore last session** is on, the tabs you had come back. Only the one you
 were last using loads immediately; the others load the moment you click them,
 which is what keeps startup fast.
 
-## View **(not yet — Phase 1 and 8)**
+## View
 
 Light, dark, or follow Windows. **Dark Paper** is separate from the dark theme:
 it darkens the page itself, which some people want and some very much do not.
+With the dark theme on and Dark Paper off, the window is dark and the page stays
+white, because a page is a page.
 
 **Page Width** shows the document at the width it would print. **Full Width**
-uses the whole window. Zoom is in the View menu, and Ctrl+0 resets it.
+uses the whole window. Zoom runs from 50% to 400% — the View menu, the slider in
+the status bar, or Ctrl and the mouse wheel. Ctrl+0 resets it.
+
+**Show Formatting Marks** is not built yet. WPF cannot draw paragraph marks and
+space dots inside its rich text control without a custom overlay, so the menu
+item is there and disabled rather than pretending.
 
 ## Printing and PDF **(not yet — Phase 8)**
 
@@ -219,7 +231,7 @@ uses the whole window. Zoom is in the View menu, and Ctrl+0 resets it.
 **Export as PDF** goes through the Microsoft Print to PDF printer built into
 Windows, so there is nothing extra to install.
 
-## Keyboard shortcuts **(not yet — Phase 1)**
+## Keyboard shortcuts
 
 | Action | Shortcut |
 | --- | --- |

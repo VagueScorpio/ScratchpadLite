@@ -2,18 +2,33 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!--
-        Light theme brushes. ThemeManager merges exactly one of Light or
-        Dark at a time, so only the one in use is ever loaded.
+        Light theme brushes. ThemeManager merges exactly one of Light or Dark at
+        a time, so only the one in use is ever loaded.
 
-        Phase 0 defines the keys; Phase 1 styles the editor and toolbars
-        against them. Section 2.1: if the WPF Fluent theme costs more than
-        150 ms at startup, these hand-made dictionaries are used instead.
+        Section 6.16: the paper stays white with black text in both themes by
+        default, because a page is a page. The Dark Paper setting is what swaps
+        in PaperBackgroundDark, and it is a separate choice from the theme.
     -->
 
     <SolidColorBrush x:Key="WindowBackground" Color="#FFFFFF" />
     <SolidColorBrush x:Key="WindowForeground" Color="#1A1A1A" />
-    <SolidColorBrush x:Key="PaperBackground" Color="#FFFFFF" />
     <SolidColorBrush x:Key="ChromeBackground" Color="#F3F3F3" />
     <SolidColorBrush x:Key="BorderBrushSoft" Color="#D6D6D6" />
+    <SolidColorBrush x:Key="AccentBrush" Color="#1565C0" />
+
+    <SolidColorBrush x:Key="ControlHover" Color="#E8E8E8" />
+    <SolidColorBrush x:Key="ControlPressed" Color="#D8D8D8" />
+    <SolidColorBrush x:Key="ControlChecked" Color="#CFE2F7" />
+    <SolidColorBrush x:Key="ControlMixed" Color="#EAEAEA" />
+
+    <!-- The editor surface: the darker area the page sits on. -->
+    <SolidColorBrush x:Key="EditorSurfaceBackground" Color="#9E9E9E" />
+    <SolidColorBrush x:Key="PaperBackground" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="PaperForeground" Color="#000000" />
+    <SolidColorBrush x:Key="PaperBorder" Color="#BDBDBD" />
+    <SolidColorBrush x:Key="PaperShadow" Color="#6E6E6E" />
+
+    <SolidColorBrush x:Key="PaperBackgroundDark" Color="#1E1E1E" />
+    <SolidColorBrush x:Key="PaperForegroundDark" Color="#E8E8E8" />
 
 </ResourceDictionary>

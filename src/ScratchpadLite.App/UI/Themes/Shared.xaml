@@ -2,16 +2,110 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!--
-        Everything that does not change with the theme: control templates,
-        spacing, the icon font stack (Segoe Fluent Icons falling back to
-        Segoe MDL2 Assets), and the brush keys that the light and dark
-        dictionaries each fill in.
+        Everything that does not change with the theme: the icon font stack and
+        the two toolbar button styles. The brushes these refer to are defined in
+        Light.xaml and Dark.xaml, and ThemeManager swaps exactly one of those in,
+        so only the theme in use is ever loaded (Section 2.1).
 
-        Phase 0 defines the keys; Phase 1 styles the editor and toolbars
-        against them. Section 2.1: if the WPF Fluent theme costs more than
-        150 ms at startup, these hand-made dictionaries are used instead.
+        Every brush reference here is a DynamicResource, which is what lets a
+        theme change take effect without rebuilding the window.
     -->
 
+    <!-- Section 3: the Windows icon fonts. Segoe Fluent Icons ships with
+         Windows 11; Segoe MDL2 Assets is the Windows 10 fallback, and WPF walks
+         this list in order. Nothing is shipped or licensed. -->
     <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+
+    <Style x:Key="IconButton" TargetType="Button">
+        <Setter Property="FontFamily" Value="{DynamicResource IconFont}" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="MinWidth" Value="30" />
+        <Setter Property="Height" Value="26" />
+        <Setter Property="Padding" Value="4,0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource WindowForeground}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Chrome"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="3"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          Margin="{TemplateBinding Padding}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource ControlHover}" />
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource BorderBrushSoft}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource ControlPressed}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.4" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- The same chrome, plus the checked state the formatting buttons need.
+         IsChecked is three-state here on purpose: a selection that is partly
+         bold shows the button neither pressed nor unpressed (Section 6.8). -->
+    <Style x:Key="IconToggle" TargetType="ToggleButton">
+        <Setter Property="FontFamily" Value="{DynamicResource IconFont}" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="MinWidth" Value="30" />
+        <Setter Property="Height" Value="26" />
+        <Setter Property="Padding" Value="4,0" />
+        <Setter Property="IsThreeState" Value="True" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource WindowForeground}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="Chrome"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="3"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          Margin="{TemplateBinding Padding}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource ControlHover}" />
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource BorderBrushSoft}" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource ControlChecked}" />
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                        </Trigger>
+                        <!-- Mixed: the selection has more than one value. -->
+                        <Trigger Property="IsChecked" Value="{x:Null}">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource ControlMixed}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource ControlPressed}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.4" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
 
 </ResourceDictionary>
