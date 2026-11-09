@@ -54,6 +54,15 @@ public partial class App : Application
 
         // 3. Crash handlers. The log file opens lazily on its first write.
         Log.MinLevel = _options.Debug ? LogLevel.Debug : LogLevel.Info;
+
+        // A build-script errand rather than a launch: read the fonts' licence
+        // names, write the file and leave. No window, no theme, no settings
+        // (Section 6.6.6).
+        if (_options.FontLicensesOutput is { } licensesPath)
+        {
+            WriteFontLicensesAndExit(licensesPath);
+            return;
+        }
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
         TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
@@ -70,6 +79,26 @@ public partial class App : Application
         window.ContentRendered += OnFirstRender;
         MainWindow = window;
         window.Show();
+    }
+
+    /// <summary>
+    /// Writes FONT_LICENSES.txt and shuts down, for build.ps1
+    /// (Section 6.6.6).
+    /// </summary>
+    private void WriteFontLicensesAndExit(string outputPath)
+    {
+        try
+        {
+            ScratchpadLite.Core.Fonts.FontLicenses.Write(AppPaths.FontDir, outputPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // The build script checks whether the file appeared, so a failure
+            // here has to be visible in the log rather than silent.
+            Log.Error($"FONT_LICENSES.txt could not be written to {outputPath}", ex);
+        }
+
+        Shutdown();
     }
 
     /// <summary>

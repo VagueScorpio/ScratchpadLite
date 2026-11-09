@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using ScratchpadLite.App.Editor;
+using ScratchpadLite.App.Fonts;
 using ScratchpadLite.App.Services;
 using ScratchpadLite.App.UI.Themes;
 using ScratchpadLite.Core.Model;
@@ -221,6 +222,8 @@ public partial class MainWindow : Window
 
         // ---- Tools ----
         Bind(Commands.WordCount, _ => ShowWordCount());
+        Bind(Commands.ReloadFonts, _ => ReloadFonts());
+        Bind(Commands.FontReport, _ => ShowFontReport());
 
         // ---- View ----
         Bind(Commands.SetTheme, p =>
@@ -387,7 +390,95 @@ public partial class MainWindow : Window
         }
 
         Editor.Editor.Focus();
+
+        // Everything expensive starts here and not a line earlier: this is the
+        // far side of the first frame, so the window is already on screen and
+        // typeable (Section 4.3). The font folder is the largest single piece
+        // of work the app does, and none of it is on the startup path.
+        FontRegistry.DefaultFamily = _settings.DefaultFontFamily;
+
+        // --measure-startup renders one frame and exits, so there is no point
+        // starting work that outlives the window - and a measurement run that
+        // prepares the font folder is also a measurement run that is doing
+        // something a real launch would not.
+        if (_options.MeasureStartup)
+        {
+            return;
+        }
+
+        FontRegistry.FontsChanged += OnFontsChanged;
+        FontRegistry.PreparationProgress += OnFontProgress;
+        FontRegistry.StartBackgroundPreparation();
     }
+
+    private void OnFontsChanged(object? sender, EventArgs e)
+    {
+        FormatToolbars.RefreshFonts();
+
+        // The default font is applied before the first frame, from its name
+        // alone, which only works for an installed font. If it turns out to be
+        // a font from the fonts/ folder, this is the first moment it can be
+        // resolved properly - and it asks the folder dictionary directly, so
+        // it never enumerates the installed fonts to find out.
+        if (FontRegistry.TryFolderFamily(_settings.DefaultFontFamily, out var folderDefault))
+        {
+            Editor.Editor.FontFamily = folderDefault;
+        }
+
+        // Only worth saying once the first pass is done - during it, the
+        // progress line is already saying more.
+        if (_fontsAnnounced)
+        {
+            Status.ShowMessage("New fonts added.");
+        }
+
+        _fontsAnnounced = true;
+    }
+
+    private bool _fontsAnnounced;
+
+    private void OnFontProgress(object? sender, Core.Fonts.FontPreparer.Progress progress)
+    {
+        Status.ShowMessage(
+            progress.Done >= progress.Total
+                ? $"{progress.Total} font files prepared."
+                : $"Preparing fonts {progress.Done + 1}/{progress.Total}...",
+            transient: progress.Done >= progress.Total);
+    }
+
+    private void ReloadFonts()
+    {
+        Status.ShowMessage("Checking the font folder...");
+        FontRegistry.Reload();
+    }
+
+    private void ShowFontReport() =>
+        new Dialogs.FontReport { Owner = this }.ShowDialog();
+
+    /// <summary>
+    /// Lists the fonts a document asked for that this PC cannot show
+    /// (Section 6.6). Phase 4 calls this when a document is opened; until
+    /// then nothing does, because nothing can open a document yet.
+    /// </summary>
+    internal void ShowMissingFonts(IEnumerable<string> requestedFamilies)
+    {
+        var missing = FontRegistry.MissingFrom(requestedFamilies);
+
+        if (missing.Count == 0)
+        {
+            MissingFontsBar.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        MissingFontsText.Text =
+            $"This document uses fonts that aren't installed: {string.Join(", ", missing)}. "
+            + "Drop them into the font folder and click Reload Fonts.";
+
+        MissingFontsBar.Visibility = Visibility.Visible;
+    }
+
+    private void OnDismissMissingFonts(object sender, RoutedEventArgs e) =>
+        MissingFontsBar.Visibility = Visibility.Collapsed;
 
     private void OnFormatStateChanged(object? sender, FormatState state)
     {

@@ -13,12 +13,29 @@ recorded when it goes in.
 Shipped in the application
 --------------------------
 
-  Phase 0: none.
+  No packages, through Phase 2.
 
   The .NET 10 runtime and WPF are inside the single-file .exe. They are
   Microsoft's, under the MIT license:
   https://github.com/dotnet/runtime/blob/main/LICENSE.TXT
   https://github.com/dotnet/wpf/blob/main/LICENSE.TXT
+
+
+Code written here from a published reference
+--------------------------------------------
+
+  WOFF 2.0 decoding                                   Phase 2, shipped
+    Follows   Google's woff2 reference implementation
+    License   MIT
+    Source    https://github.com/google/woff2
+
+    No code is copied. The format is defined by the W3C, and what is taken
+    from the reference implementation is the decoding logic for the parts the
+    specification describes in prose rather than in a table: the table
+    directory's two variable-length integer encodings, and the triplet
+    encoding that the glyph coordinates are packed with. The implementation is
+    src/ScratchpadLite.Core/Fonts/Woff2Decoder.cs, and it uses the Brotli and
+    zlib support built into .NET for the compression.
 
 
 Planned, with the phase that adds them
@@ -50,10 +67,8 @@ Deliberately not used
   license-key libraries, excluded by the project rules.
 
   WOFF, WOFF2, Type 1, .dfont, .eot and .t42 handling is hand-written, because
-  no maintained free .NET library covers them. The WOFF2 decoder follows the
-  logic of Google's woff2 reference implementation, which is MIT licensed, using
-  the Brotli and zlib support built into .NET:
-  https://github.com/google/woff2
+  no maintained free .NET library covers them. See the WOFF2 note above for
+  what the implementation is based on.
 
   ODT reading and writing is hand-written on ZipArchive and System.Xml.Linq, for
   the same reason.

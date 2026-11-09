@@ -17,12 +17,28 @@ public sealed record CommandLineOptions(
     bool Debug,
     string? FontDirOverride)
 {
+    /// <summary>
+    /// <c>--font-licenses &lt;path&gt;</c>: write FONT_LICENSES.txt from the
+    /// font folder and exit (Section 6.6.6).
+    /// </summary>
+    /// <remarks>
+    /// An init property rather than another constructor parameter, so adding
+    /// it does not change every call site that builds one of these.
+    /// <para>
+    /// It exists because the licences have to be read out of the fonts' own
+    /// name tables, and build.ps1 is PowerShell - this is how the build script
+    /// borrows the reader rather than growing a second one.
+    /// </para>
+    /// </remarks>
+    public string? FontLicensesOutput { get; init; }
+
     public static CommandLineOptions Parse(string[] args)
     {
         var files = new List<string>();
         var measure = false;
         var debug = false;
         string? fontDir = null;
+        string? licenses = null;
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -37,6 +53,9 @@ public sealed record CommandLineOptions(
                 case "--fonts" when i + 1 < args.Length:
                     fontDir = args[++i];
                     break;
+                case "--font-licenses" when i + 1 < args.Length:
+                    licenses = args[++i];
+                    break;
                 default:
                     if (!args[i].StartsWith("--", StringComparison.Ordinal))
                     {
@@ -47,6 +66,9 @@ public sealed record CommandLineOptions(
             }
         }
 
-        return new CommandLineOptions(files, measure, debug, fontDir);
+        return new CommandLineOptions(files, measure, debug, fontDir)
+        {
+            FontLicensesOutput = licenses,
+        };
     }
 }

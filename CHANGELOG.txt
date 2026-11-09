@@ -8,8 +8,216 @@ underneath. Old entries are never removed.
 Contents
 --------
 
+  v1.2  2026-11-08  Phase 2: fonts
   v1.1  2026-11-08  Phase 1: editor core
   v1.0  2026-11-08  Phase 0: skeleton and pipeline
+
+
+--------------------------------------------------------------------------------
+v1.2  -  2026-11-08  -  Phase 2: fonts
+--------------------------------------------------------------------------------
+
+What
+----
+
+The fonts/ folder works. Drop fonts next to the .exe and they turn up in the
+picker, prepared in the background after the window is already on screen.
+
+  * Sfnt: reading and writing the OpenType container - header, table
+    directory, checksums, collections - with every offset bounds-checked.
+  * FontInspector: family and face names, version, copyright, licence text and
+    URL, fsType, glyph count, whether the font has Latin letters, and whether
+    it is a variable font. Reads raw bytes and needs no WPF.
+  * WoffDecoder: WOFF 1.0, each table inflated with the built-in ZLibStream.
+  * Woff2Decoder: WOFF 2.0 - the Brotli stream, both variable-length integer
+    encodings, and the transformed glyf, loca and hmtx tables rebuilt.
+  * FontTypeDetector: what a file actually is, from its first 64 bytes, with
+    the extension only consulted for formats that have no signature.
+  * FontScanner: one recursive listing of names, sizes and times.
+  * ZipFontSource: fonts read straight out of a .zip, one entry at a time,
+    never unpacked into fonts/.
+  * FontCache: prepared fonts at data/font_cache, named by content hash.
+  * FontIndex: data/font_cache/index.json, one card per source file,
+    source-generated JSON with a version field.
+  * FontPreparer: the per-file pipeline and the incremental folder check.
+  * Substitutions: the Section 6.6 table, plus CSS font stacks and the generic
+    families, which turn up in documents converted from HTML.
+  * FontLicenses: generates FONT_LICENSES.txt from the fonts' own name tables,
+    flagging anything with no licence information, Restricted embedding, or
+    wording that suggests it cannot be redistributed.
+  * FontRegistry: registers families from the index, resolves a name to a
+    family, watches the folder, and raises FontsChanged in batches.
+  * The font picker in three groups - Font folder, Recently used, All fonts -
+    virtualized, filtered as you type, with a sample for fonts that cannot
+    draw their own name and an italic warning for a font this PC lacks.
+  * Tools > Font Report: every file, what happened to it, and why, with a
+    Problems-only filter and Copy to Clipboard.
+  * Tools > Reload Fonts, a FileSystemWatcher on the folder with a one-second
+    debounce, and "Preparing fonts 12/480" in the status bar.
+  * The missing-font bar above the editor.
+  * Limits: the file-size caps, the zip guards (entry count, total size,
+    compression ratio, unsafe names) and the decoded-font cap.
+  * --font-licenses <path>, which build.ps1 uses to regenerate the licence
+    file through the real reader rather than a second one in PowerShell.
+  * 191 tests passing (114 in Core, 77 in App).
+
+Measured on this PC:
+
+    warm startup      669 ms median of runs 2-5, with the font folder already
+                      cached. Phase 1 was 699 ms, so the font system costs
+                      nothing at startup - which is the whole design.
+    with 687 fonts    695 ms. The number does not move with the size of the
+                      font folder, because nothing reads a font at startup.
+    index load        407 families registered from 688 entries in 9-13 ms
+    first run         687 files, 396 MB, prepared in 4-9 s in the background
+                      while the window was up and typeable
+    idle memory       144.9 MB working set, 81.8 MB private
+    first-run burst   over a 396 MB font folder: peaks at 291 MB working set /
+                      247 MB private and settles at 228 / 162. Over the 150 MB
+                      line, and only on the run that prepares the folder. See
+                      Watch, below.
+    picker dropdown   52 ms to build the first time (Section 6.7 target: 300)
+    .exe              142.2 MB
+
+Why
+---
+
+The index is the whole performance story, so it is worth being plain about what
+it buys. A launch with an unchanged font folder reads one JSON file and
+registers every family from the names stored in it - no font file is opened,
+nothing is hashed, nothing is copied. WPF reads a font only when text is
+actually drawn in it. That is why 687 fonts cost 9 ms and not nine seconds, and
+why the startup figure above is the same whether the folder holds nine fonts or
+seven hundred.
+
+Fonts are copied into a cache rather than loaded from fonts/ because WPF keeps
+a font file open for as long as the family is registered. Loading in place
+would mean the user cannot delete, rename or replace their own fonts while the
+editor is open. Naming the copy by content hash means an updated font gets a
+new cache file instead of fighting over the old one, and two files holding the
+same font share one copy.
+
+A font bundle downloaded from the web almost always holds the .otf, the .woff
+and the .woff2 of every font. Without duplicate detection the picker shows one
+name three times and the cache holds three copies of the same outlines, so the
+.ttf or .otf is kept and the rest are marked "Duplicate of ...".
+
+A font in fonts/ wins over an installed font of the same name. Someone who put
+a font there did it on purpose.
+
+How
+---
+
+Three things were found by measurement rather than by reading, and they are the
+substance of this phase.
+
+  * The WOFF2 bounding-box bitmap is padded to four bytes, not one. One bit
+    per glyph, and the obvious ceil(n/8) is right for the number of bits and
+    wrong for the size of the field: with 2901 glyphs it gives 363 bytes where
+    the answer is 364. Every bounding box after it is then read one byte out of
+    step, so every composite glyph in the font came out as two halves of its
+    neighbours - accented capitals with their left edge past their right edge.
+    What makes this worth recording is which fonts can catch it. A font whose
+    glyphs are all simple outlines stores no bounding boxes at all, reads
+    nothing after the bitmap, and decodes perfectly either way: four of the
+    seven test fonts were in that group and said nothing. Only a font with
+    composite glyphs - an accented Latin font, or CJK - fails. Testing against
+    one real font would not have been enough.
+
+  * The 255UInt16 escape codes are the way round that looks wrong. Code 255
+    adds 253 and code 254 adds twice that. Swapping them was tried, on the
+    theory that the pair had been transcribed backwards, and three more test
+    fonts failed immediately - so the original was right, and the comment in
+    Woff2Reader now says so and says how it is known. The codes only appear on
+    glyphs with 253 points or more, which is why most fonts decode either way
+    and a CJK font and an icon font are what settle it.
+
+  * Preparing a large font folder used 772 MB and kept 732 MB of it. The
+    budget in Section 2.1 is 150 MB, so this was the real work of the phase,
+    and it took three separate fixes. First, FontInspector was reading fonts
+    through the table-copying reader: for a reader that wants four of a font's
+    twenty tables, that is the whole font copied to look at a fifth of it, so
+    inspecting 396 MB of fonts allocated another 396 MB. A zero-copy directory
+    reader - tags and offsets, with the tables read in place - took the peak
+    from 772 MB to 353 MB. Second, the file reads were going through
+    ArrayPool<byte>.Shared, which keeps its buffers on purpose and cannot hold
+    anything over 1 MB: 70 MB of live buffers were still held after the pass.
+    A pool scoped to the pass, dropped when it ends, took the live managed heap
+    from 70 MB to 6 MB. Third, that pool's buckets are powers of two, so
+    allowing it up to the 50 MB file cap let it hold one buffer of 1, 2, 4, 8,
+    16, 32 and 64 MB at once - about 127 MB for reading one file at a time.
+    Capping pooling at 4 MB and giving the handful of larger fonts a plain
+    array each brought the peak to 247 MB and the settled figure to 162 MB.
+    What is left is 6 MB of live managed memory and the runtime's own committed
+    space, so there is nothing still being held.
+
+One bug worth its own note, because the test suite could not have caught it:
+
+  * A UI callback with no inline fallback. FontRegistry marshals its progress
+    and change notifications onto the UI thread, and when there was no
+    Application it ran them inline instead. That is exactly the state during
+    --measure-startup, which shuts down at the first frame: the callback then
+    touched the status bar from the preparation thread, threw "the calling
+    thread cannot access this object", and took the whole folder check down
+    with it - so the index was never saved and every measurement run prepared
+    the entire font folder again from scratch. It was visible only as four
+    ERROR lines in the log and a startup figure that would not settle. There
+    is no sensible inline fallback for a UI update: if there is no UI, there is
+    nothing to tell. --measure-startup now also skips font preparation
+    outright, because a measurement run doing work a real launch would not is
+    not a measurement.
+
+Two deliberate deviations from the blueprint:
+
+  * Section 6.6.2 step 6 says to read the family names by loading the font once
+    with WPF's Fonts.GetFontFamilies. FontInspector reads them out of the name
+    table instead. Two reasons: WPF keeps a font file open once it has read it,
+    which is the thing the cache copy exists to avoid, and reading names
+    through WPF would put a WPF dependency in Core, where the compiler is set
+    up to refuse one. The App tests load every decoded font through WPF and
+    check its families and glyph count, so the guarantee that mattered - that
+    DirectWrite can actually read what was produced - is still tested, just
+    not during preparation.
+
+  * SfntBuilder was listed in Section 5.1 under Fonts/Type1/, described as
+    "shared by every decoder and converter". The WOFF decoders need it in
+    Phase 2 and Type 1 is Phase 3, so the shared container code is
+    Fonts/Sfnt.cs and the stub under Type1/ is gone rather than left throwing.
+    A shared helper filed under one caller's folder is misleading about who
+    uses it. Phase 3 still needs the other half of what that name covered -
+    synthesising head, hhea, maxp, hmtx, post, OS/2, name and cmap for a
+    converted Type 1 font - and that belongs with the Type 1 code.
+
+Not built in this phase
+-----------------------
+
+  * WOFF2 font collections. Section 6.6.5 asks for them. A collection needs a
+    second directory, shared glyf and loca tables across fonts, and a third
+    index layer, and web fonts are effectively never collections - no .woff2
+    collection was found to test against. A collection is refused with a
+    message naming the .ttc or the individual .otf files instead, which is
+    checked by a test. Say the word if it should be built anyway.
+
+  * Adobe Type 1 (.pfb, .pfa), Mac containers (.dfont, ._*), EOT and Type 42.
+    These are Phase 3 as planned. They are detected and named now, so the Font
+    Report says each one cannot be used yet rather than ignoring the file.
+
+  * The missing-font bar is built and tested but has no caller: it lists the
+    fonts a document asked for, and nothing can open a document until Phase 4.
+
+Watch
+-----
+
+Idle memory is 144.9 MB working set against the 150 MB in Section 2.1, which is
+where Phase 1 left it - the font system added about 1 MB for nine fonts and
+about 5 MB for 687. Private bytes are 81.8 MB.
+
+The run that prepares a very large font folder is the exception: over 396 MB of
+fonts it peaks at 291 MB working set and settles at 228. That is a first-run
+state and it holds 6 MB of live managed memory, so it is the runtime's
+committed space rather than anything retained, but on the working-set reading
+it is over the line. The question of which figure Section 2.1 means is still
+open from the Phase 1 report.
 
 
 --------------------------------------------------------------------------------

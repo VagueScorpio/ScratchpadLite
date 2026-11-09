@@ -78,11 +78,10 @@ Pick from the list or type any size you like, half sizes included — `10.5` wor
 
 ## Fonts
 
-> Phase 1 lists the fonts Windows has. The `fonts/` folder, the converted
-> formats and the Font Report arrive in Phases 2 and 3.
-
 The font picker shows every font Windows has, plus the bundled collection, plus
-anything you put in the `fonts/` folder next to the `.exe`.
+anything you put in the `fonts/` folder next to the `.exe`. The list is in three
+groups — **Font folder** first, then **Recently used**, then **All fonts** —
+because a font you put there yourself is the one you are looking for.
 
 ### Adding your own fonts
 
@@ -95,8 +94,14 @@ Loaded directly:
 
 Converted once and then cached, so it only ever costs you the first time:
 
-`.woff` `.woff2` `.pfb` `.pfa` `.dfont` `._*` (Mac AppleDouble) `.eot` `.t42`
-`.zip`
+`.woff` `.woff2`
+
+Fonts inside a `.zip` are read straight out of the archive — nothing is
+unpacked into `fonts/`.
+
+**Not yet:** `.pfb` `.pfa` (Adobe Type 1), `.dfont` and `._*` (Mac
+containers), `.eot`, `.t42`. These are recognised and named in the Font
+Report, which says they cannot be used yet rather than ignoring them.
 
 If a Type 1 font (`.pfb` or `.pfa`) has a `.pfm` or `.afm` file beside it, keep
 them together — those carry the metrics and the proper Windows font names, which

@@ -322,6 +322,22 @@ internal static class FormatCommands
             Typography.CapitalsProperty, isSmallCaps ? FontCapitals.Normal : FontCapitals.SmallCaps);
     }
 
+    /// <summary>
+    /// Applies a font family by name (Section 6.6).
+    /// </summary>
+    /// <remarks>
+    /// The name goes through <see cref="Fonts.FontRegistry.Resolve"/> rather
+    /// than into <c>new FontFamily(name)</c>. A font from the <c>fonts/</c>
+    /// folder is not installed on the PC, so WPF cannot find it by name alone -
+    /// it needs the cache file URI the registry holds. Constructing the family
+    /// from the bare name does not throw; it quietly falls back to the default
+    /// font, which looks exactly like the font being broken.
+    /// <para>
+    /// The name the user asked for is also recorded in
+    /// <see cref="Bridge.SpProps.RequestedFont"/>, so saving writes back the
+    /// name rather than whatever was shown (Section 6.6).
+    /// </para>
+    /// </remarks>
     internal static void SetFontFamily(RichTextBox rtb, string family)
     {
         if (string.IsNullOrWhiteSpace(family))
@@ -329,7 +345,21 @@ internal static class FormatCommands
             return;
         }
 
-        rtb.Selection.ApplyPropertyValue(TextElement.FontFamilyProperty, new FontFamily(family));
+        var name = family.Trim();
+
+        rtb.BeginChange();
+        try
+        {
+            rtb.Selection.ApplyPropertyValue(
+                TextElement.FontFamilyProperty,
+                Fonts.FontRegistry.Resolve(name));
+
+            SpProps.ApplyToSelection(rtb.Selection, SpProps.RequestedFontProperty, name);
+        }
+        finally
+        {
+            rtb.EndChange();
+        }
     }
 
     internal static void SetFontSize(RichTextBox rtb, double sizePt)

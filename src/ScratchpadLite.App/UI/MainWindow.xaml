@@ -133,8 +133,8 @@
                 <MenuItem Header="Edit User Dictionary..." IsEnabled="False" />
                 <MenuItem Header="Word Count..." Command="{x:Static ui:Commands.WordCount}" />
                 <Separator />
-                <MenuItem Header="Font Report..." Command="{x:Static ui:Commands.FontReport}" IsEnabled="False" />
-                <MenuItem Header="Reload Fonts" Command="{x:Static ui:Commands.ReloadFonts}" IsEnabled="False" />
+                <MenuItem Header="Font Report..." Command="{x:Static ui:Commands.FontReport}" />
+                <MenuItem Header="Reload Fonts" Command="{x:Static ui:Commands.ReloadFonts}" />
                 <MenuItem Header="Open Font Folder" Command="{x:Static ui:Commands.OpenFontFolder}" />
                 <Separator />
                 <MenuItem Header="Preferences..." Command="{x:Static ui:Commands.Preferences}" IsEnabled="False" />
@@ -189,6 +189,37 @@
         <ui:Toolbars x:Name="FormatToolbars" DockPanel.Dock="Top" />
 
         <ui:StatusBar x:Name="Status" DockPanel.Dock="Bottom" />
+
+        <!-- The missing-font bar (Section 6.6). It sits above the editor rather
+             than in a dialog, because it is information about the document you
+             are looking at, not something to dismiss before you can work. It
+             has no trigger until documents can be opened in Phase 4; the list
+             it shows comes from FontRegistry.MissingFrom. -->
+        <Border x:Name="MissingFontsBar"
+                DockPanel.Dock="Top"
+                Visibility="Collapsed"
+                Padding="10,6"
+                Background="{DynamicResource ChromeBackground}"
+                BorderBrush="{DynamicResource BorderBrushSoft}"
+                BorderThickness="0,0,0,1">
+            <DockPanel>
+                <Button DockPanel.Dock="Right"
+                        Content="Dismiss"
+                        MinWidth="72"
+                        Margin="8,0,0,0"
+                        Click="OnDismissMissingFonts" />
+
+                <Button DockPanel.Dock="Right"
+                        Content="Reload Fonts"
+                        MinWidth="96"
+                        Margin="8,0,0,0"
+                        Command="{x:Static ui:Commands.ReloadFonts}" />
+
+                <TextBlock x:Name="MissingFontsText"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+            </DockPanel>
+        </Border>
 
         <!-- Phase 7 replaces this single editor with the tab control. -->
         <editor:EditorView x:Name="Editor" />

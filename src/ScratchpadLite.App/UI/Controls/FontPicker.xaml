@@ -5,38 +5,86 @@
     <!-- Section 6.7. Virtualization with recycling is not optional here: with a
          font bundle there can be many hundreds of families, and each name drawn
          in its own font makes WPF open that font file the first time its row is
-         shown. Without virtualization the dropdown takes seconds to open.
+         shown. Without virtualization the dropdown takes seconds to open, and
+         IsVirtualizingWhenGrouping has to be on as well, or grouping quietly
+         turns virtualization off again. -->
 
-         Phase 1 lists the Windows fonts. Phase 2 adds the "Font folder" and
-         "Recently used" groups, the name-drawn-in-its-own-font setting, and the
-         italic-with-warning-glyph row for a font the document asked for but
-         this PC does not have. -->
+    <Grid>
+        <ComboBox x:Name="Box"
+                  Width="178"
+                  IsEditable="True"
+                  IsTextSearchEnabled="False"
+                  ToolTip="Font"
+                  DropDownOpened="OnDropDownOpened"
+                  PreviewKeyDown="OnPreviewKeyDown"
+                  LostFocus="OnLostFocus"
+                  SelectionChanged="OnSelectionChanged">
 
-    <ComboBox x:Name="Box"
-              Width="178"
-              IsEditable="True"
-              IsTextSearchEnabled="False"
-              ToolTip="Font"
-              DropDownOpened="OnDropDownOpened"
-              PreviewKeyDown="OnPreviewKeyDown"
-              LostFocus="OnLostFocus"
-              SelectionChanged="OnSelectionChanged">
+            <ComboBox.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <VirtualizingStackPanel VirtualizingPanel.IsVirtualizing="True"
+                                            VirtualizingPanel.VirtualizationMode="Recycling"
+                                            VirtualizingPanel.IsVirtualizingWhenGrouping="True" />
+                </ItemsPanelTemplate>
+            </ComboBox.ItemsPanel>
 
-        <ComboBox.ItemsPanel>
-            <ItemsPanelTemplate>
-                <VirtualizingStackPanel VirtualizingPanel.IsVirtualizing="True"
-                                        VirtualizingPanel.VirtualizationMode="Recycling"
-                                        VirtualizingPanel.IsVirtualizingWhenGrouping="True" />
-            </ItemsPanelTemplate>
-        </ComboBox.ItemsPanel>
+            <ComboBox.GroupStyle>
+                <GroupStyle>
+                    <GroupStyle.HeaderTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Name}"
+                                       Margin="4,6,4,2"
+                                       FontSize="11"
+                                       FontWeight="SemiBold"
+                                       Opacity="0.7" />
+                        </DataTemplate>
+                    </GroupStyle.HeaderTemplate>
+                </GroupStyle>
+            </ComboBox.GroupStyle>
 
-        <ComboBox.ItemTemplate>
-            <DataTemplate>
-                <TextBlock Text="{Binding Name}"
-                           FontFamily="{Binding PreviewFamily}"
-                           FontSize="14"
-                           TextTrimming="CharacterEllipsis" />
-            </DataTemplate>
-        </ComboBox.ItemTemplate>
-    </ComboBox>
+            <ComboBox.ItemTemplate>
+                <DataTemplate>
+                    <!-- Two text blocks rather than one: a font with no Latin
+                         letters cannot draw its own name, so the name is shown
+                         in the UI font and a short sample follows in the font
+                         itself. -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Column="0"
+                                   Text="{Binding Name}"
+                                   FontFamily="{Binding PreviewFamily}"
+                                   FontStyle="{Binding NameStyle}"
+                                   FontSize="14"
+                                   TextTrimming="CharacterEllipsis" />
+
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding Sample}"
+                                   FontFamily="{Binding OwnFamily}"
+                                   FontSize="14"
+                                   Margin="8,0,0,0"
+                                   Opacity="0.8"
+                                   Visibility="{Binding SampleVisibility}" />
+                    </Grid>
+                </DataTemplate>
+            </ComboBox.ItemTemplate>
+        </ComboBox>
+
+        <!-- Shown when the caret sits in text whose font this PC does not have
+             (Section 6.7). It sits over the right-hand end of the text area,
+             clear of the dropdown arrow. -->
+        <TextBlock x:Name="MissingGlyph"
+                   Text="&#xE7BA;"
+                   FontFamily="{DynamicResource IconFont}"
+                   FontSize="12"
+                   Margin="0,0,24,0"
+                   HorizontalAlignment="Right"
+                   VerticalAlignment="Center"
+                   IsHitTestVisible="False"
+                   Visibility="Collapsed"
+                   ToolTip="This font is not on this PC. Drop it into the font folder and click Reload Fonts." />
+    </Grid>
 </UserControl>

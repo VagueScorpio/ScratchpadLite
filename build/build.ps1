@@ -77,7 +77,32 @@ else {
 Step 'FONT_LICENSES.txt'
 # Section 6.6.6: regenerated from the bundle through FontInspector, flagging any
 # font with no license text and any whose license forbids redistribution.
-Write-Host 'Generator lands in Phase 2; the file in the repo is copied as-is for now.'
+#
+# The published .exe generates it, rather than this script reading font tables
+# itself: the reader already exists in Core, and a second one in PowerShell
+# would be a second thing to keep right. --font-licenses writes the file and
+# exits without showing a window.
+$licenses = Join-Path $repo 'FONT_LICENSES.txt'
+$publishedExe = Join-Path $distApp 'ScratchpadLite.exe'
+
+if (Test-Path $publishedExe) {
+    Start-Process -FilePath $publishedExe `
+        -ArgumentList '--font-licenses', "`"$licenses`"" `
+        -Wait -NoNewWindow
+
+    if (Test-Path $licenses) {
+        $flagged = Select-String -Path $licenses -Pattern 'NEEDS A DECISION' -Quiet
+        if ($flagged) {
+            Write-Warning 'Some bundled fonts are flagged. See the top of FONT_LICENSES.txt.'
+        } else {
+            Write-Host 'Regenerated, nothing flagged.'
+        }
+    } else {
+        Write-Warning 'FONT_LICENSES.txt was not written; see data\logs.'
+    }
+} else {
+    Write-Warning 'No published .exe yet, so FONT_LICENSES.txt was not regenerated.'
+}
 
 # ------------------------------------------------------------------- 6. docs --
 Step 'Documents'

@@ -50,6 +50,13 @@ public partial class Toolbars : UserControl
     }
 
     /// <summary>
+    /// Rebuilds the font list after the folder check found new families
+    /// (Section 6.7). Does nothing if the dropdown has never been opened,
+    /// since there is no list to rebuild yet.
+    /// </summary>
+    internal void RefreshFonts() => FontBox.Refresh();
+
+    /// <summary>
     /// Reflects the formatting at the caret. Guarded by
     /// <see cref="_updating"/>, because setting a ToggleButton raises its own
     /// events and would otherwise apply the formatting it is only reporting.
