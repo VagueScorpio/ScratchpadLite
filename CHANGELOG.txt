@@ -8,9 +8,192 @@ underneath. Old entries are never removed.
 Contents
 --------
 
+  v1.3  2026-11-09  Phase 3: the rest of the font formats
   v1.2  2026-11-08  Phase 2: fonts
   v1.1  2026-11-08  Phase 1: editor core
   v1.0  2026-11-08  Phase 0: skeleton and pipeline
+
+
+--------------------------------------------------------------------------------
+v1.3  -  2026-11-09  -  Phase 3: the rest of the font formats
+--------------------------------------------------------------------------------
+
+What
+----
+
+Everything else that can hold an outline font now works in the fonts/ folder.
+
+  * Type1Parser: the PFB and PFA wrappers, the eexec layer and the charstring
+    layer, the font and Private dictionaries, the encoding, the subroutines and
+    the charstrings. Multiple Master and CID-keyed fonts are named and refused
+    rather than half-converted.
+  * CharStringConverter: a Type 1 charstring interpreted into an outline -
+    subroutines inlined, flex curves assembled, accented characters composed
+    from their two component glyphs, division and hint replacement handled,
+    hints dropped.
+  * Type2Writer: that outline written back out as a Type 2 charstring.
+  * CffWriter: the CFF table - header, INDEXes, Top DICT, charset, Private
+    DICT.
+  * SfntTables: head, hhea, maxp, hmtx, post, OS/2, name and cmap synthesised
+    for a font that carries none of them, with format 4, format 12 above
+    U+FFFF, and a (3,0) symbol subtable for a font whose glyph names mean
+    nothing outside it.
+  * GlyphList: the Adobe Glyph List, 4281 names, embedded - plus the uniXXXX
+    and uXXXX forms, variant suffixes such as a.sc, and underscore ligature
+    names.
+  * AdobeEncodings: StandardEncoding, which seac needs and which a font that
+    declines to list its own encoding relies on.
+  * AfmPfmReader: the binary .pfm and the text .afm, for the Windows family
+    name, the style bits, the weight class and the published widths.
+  * EotDecoder: the EOT header walked, the XOR mask undone, the font
+    underneath rebuilt. MicroType Express files are refused by name.
+  * Type42Extractor: the hex strings of a /sfnts array reassembled.
+  * MacFontExtractor: .dfont, AppleDouble ._* files and data-fork suitcases -
+    the resource map walked, sfnt resources extracted, and POST resources
+    joined back into PFB data so Mac Type 1 fonts go through the Type 1 path.
+  * All of it wired into the folder pipeline, with the Font Report naming the
+    format each file was converted from.
+  * 276 tests passing (197 in Core, 79 in App).
+
+Measured on this PC, with a sixteen-file font folder covering every format:
+
+    warm startup      705 ms median of runs 2-5. Phase 2 was 669 ms and Phase 1
+                      699 ms, so still nothing on the startup path.
+    index load        10 families from 17 entries in 4 ms
+    first run         13 files prepared in well under a second, in the
+                      background
+    idle memory       144.4 MB working set, 81.0 MB private
+    .exe              142.8 MB (up 0.6 MB, which is the Adobe Glyph List)
+    log               no warnings and no errors
+
+Why
+---
+
+A Type 1 font has outlines, widths and glyph names, and nothing else. No
+character map, no metrics tables, no name table in any form an OpenType
+consumer can read. So "converting" one is really two jobs: translate the
+outlines, and invent - correctly - everything else a modern font is expected to
+carry. That is why this phase is mostly SfntTables and the Adobe Glyph List
+rather than charstring arithmetic.
+
+The glyph list is the part worth explaining. A Type 1 font says a glyph is
+called "eacute"; it does not say that means U+00E9. The only way to build a
+cmap is to look every name up in Adobe's published list, which is why 78 KB of
+it is embedded. For a symbol or dingbat font the names are the designer's own
+invention - "a12", "H18533" - and mean nothing to anybody, so those get a
+symbol cmap built from the font's own encoding at U+F020 upwards instead. The
+choice between the two is made by counting how many of a font's names the list
+recognises, because doing it name by name would give a font with a few
+recognisable names a half-working cmap, which is worse than either answer.
+
+Charstrings are converted in two passes - interpret to an outline, then emit -
+rather than translated operator by operator. Type 1 has features Type 2 has no
+equivalent of: subroutines that return values, flex curves written as seven
+separate moves, accented characters that reference two other glyphs by
+StandardEncoding code, and division. Going through a plain outline makes all of
+that local to the interpreter.
+
+How
+---
+
+Three bugs found by testing, each of which had produced something that looked
+entirely valid.
+
+  * A C# precedence trap in the CFF writer. "total + 1 switch { ... }" parses
+    as "total + (1 switch { ... })", not "(total + 1) switch { ... }", so the
+    INDEX offset size came out as the size of the whole INDEX rather than 1 to
+    4 - and every offset was then written in that many bytes. A 105 KB
+    CharStrings INDEX became 95 MB, and a 140 KB font converted to a 95 MB one.
+    Nothing else noticed: the font was still structurally valid, FontInspector
+    read it, and the only clue was the size. Both branches now have
+    parentheses and a comment.
+
+  * The CFF offsets were written into a copy. The Top DICT holds byte offsets
+    to the charset, the CharStrings INDEX and the Private DICT, and they can
+    only be filled in once those parts have been measured - so the DICT is
+    built with five-byte placeholders and patched afterwards. But the patching
+    happened after the DICT had already been wrapped in its INDEX, and
+    wrapping copies the bytes. Every offset in the font that shipped was
+    therefore zero. DirectWrite's entire diagnosis of this was "Invalid file
+    format".
+
+  * The PFA reader swallowed the trailer. A Type 1 program ends with 512 zeros
+    and the word "cleartomark", and those zeros are perfectly good hex digits.
+    A decoder that reads hex until something is not hex therefore absorbs 256
+    bytes of padding into the encrypted data, discovers the problem only at
+    "cleartomark", and then - in the first version here - fell back to treating
+    the whole section as binary, leaving the private dictionary unreadable and
+    the font apparently corrupt. Hex or binary is now decided from the first
+    four non-blank characters and then stuck to, and the hex stops at the
+    first character that is not one.
+
+One design decision rather than a bug: Type 42's pad-byte rule cannot be
+resolved by a reader. The specification says each string in the /sfnts array is
+padded to an even length, but nothing records whether a pad byte was added, so
+a 2048-byte string could be 2048 bytes of font or 2047 and a pad. Guessing
+wrong either way corrupts every table after the first split. Both readings are
+tried and the one that produces a font with a readable family name wins -
+which needs no guess, and is also why that check has to be the family name
+rather than merely "it parsed": the wrong reading parses happily, because the
+header and the table directory are in the first chunk and intact either way.
+
+Two notes about testing fonts through WPF, because a day went into them:
+
+  * WPF's font cache is keyed by directory. Load several fonts from one folder
+    and the first works while every one after it throws - sometimes
+    FileFormatException, sometimes a NullReferenceException from inside
+    MS.Internal.FontCache - whether or not the fonts are valid. Each font in
+    the tests now gets a directory of its own.
+  * Metrics must be read through "new GlyphTypeface(uri)". Going via
+    Fonts.GetFontFamilies, then a Typeface, then FormattedText throws
+    FileFormatException for a font loaded out of a file - and does it for an
+    untouched arial.ttf as readily as for a converted one, which is what
+    finally separated the harness problem from the real conversion bugs above.
+
+Smaller things:
+
+  * The PFM field offsets were four bytes out: dfFace is at 105, and 101 is
+    dfDevice, which for a printer font reads "PostScript". Every converted
+    font was briefly called "PostScript Regular".
+  * A .pfm or .afm sitting beside its font used to be reported as "the outline
+    file (.pfb) is missing", which sends the user looking for something they
+    already have. It now says what it is metrics for, and only reports a
+    missing outline when the outline really is missing.
+  * SfntTables is the other half of what Section 5.1 called SfntBuilder - the
+    table synthesis, as opposed to the container assembly in Sfnt.Build. The
+    name was left behind in Phase 2 for the reason recorded there.
+
+Not built in this phase
+-----------------------
+
+  * Hints are dropped, which Section 6.6.4 allows. A converted font can look
+    slightly soft on screen at small sizes; printing is unaffected.
+  * MicroType Express compressed EOT files. That is a Monotype compression
+    format with no free implementation, and Section 13 already lists it as
+    unsupported. They are refused by name.
+  * Multiple Master and CID-keyed Type 1 fonts, as Section 6.6.3 says.
+
+Tested against what
+-------------------
+
+Worth being plain about, because the fixtures are what the confidence rests on.
+
+  * Type 1: four URW text fonts with their AFMs (Nimbus Roman Regular and
+    Bold, Nimbus Sans, Nimbus Mono PS), Adobe's Symbol with its PFM, and
+    Adobe Sans MM and Adobe Serif MM as negative fixtures. All six are real
+    files produced by real tools. WPF reads 855 glyphs, 854 cmap entries and
+    855 non-zero advance widths out of each converted text font, and draws
+    outlines from them.
+  * EOT: four real files, three from Adobe Acrobat and one from Typora. All
+    four recover and load.
+  * Type 42 and the Mac containers: no .t42, .dfont, .suit or ._* file exists
+    anywhere on this machine, so those tests build their fixtures from a
+    Windows font. That proves the readers understand the formats as written
+    here, which is weaker than testing against something another tool
+    produced. If you have real ones, dropping them into tests/Fixtures/Fonts
+    is all it takes - the tests pick up whatever is there.
+  * A PFA was also built from a PFB to exercise that wrapper, and it is what
+    found the cleartomark bug above.
 
 
 --------------------------------------------------------------------------------

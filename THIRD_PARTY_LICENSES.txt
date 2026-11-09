@@ -81,12 +81,16 @@ Deliberately not used
 Embedded resources
 ------------------
 
-  Adobe Glyph List (AGL)                              Phase 3
-    License  BSD-3-Clause
+  Adobe Glyph List (AGL)                              Phase 3, shipped
+    License  BSD-3-Clause, which is in the file itself
     Source   https://github.com/adobe-type-tools/agl-aglfn
     Why      Mapping Type 1 glyph names to Unicode, so a converted Type 1 font
-             gets a real cmap table.
-    Note     Resources/glyphlist.txt is a placeholder until Phase 3.
+             gets a real cmap table. A Type 1 font says a glyph is called
+             "eacute" and nowhere says that means U+00E9; this list is the only
+             way to know.
+    Note     Resources/glyphlist.txt, 4281 names, 78 KB, embedded in
+             ScratchpadLite.Core and loaded on first use - so a font folder
+             with no Type 1 fonts in it never pays for it.
 
 
 Test-only

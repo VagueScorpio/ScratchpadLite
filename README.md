@@ -5,12 +5,13 @@ no .NET runtime, no Office, nothing else needed on the PC.
 
 Windows 10 (version 1809 or later) and Windows 11, x64.
 
-> **Status: Phase 2 — fonts.**
-> You can type and format, and the `fonts/` folder works: drop in `.ttf`,
-> `.otf`, `.ttc`, `.woff`, `.woff2` or a `.zip` of fonts and they appear in the
-> picker, prepared in the background after the window is already up. Tools →
-> Font Report says what happened to every file. Opening and saving documents,
-> tabs, find and spell check are still ahead —
+> **Status: Phase 3 — every font format.**
+> You can type and format, and the `fonts/` folder takes almost anything:
+> `.ttf`, `.otf`, `.ttc`, `.woff`, `.woff2`, Adobe Type 1 (`.pfb`, `.pfa`), Mac
+> containers (`.dfont`, `._*`), `.eot`, `.t42`, or a `.zip` of any of them.
+> Everything is prepared in the background after the window is already up, and
+> Tools → Font Report says what happened to every file. Opening and saving
+> documents, tabs, find and spell check are still ahead —
 > [Build Phases](#build-phases) tracks what lands when.
 
 ## What it will do
@@ -22,8 +23,8 @@ Windows 10 (version 1809 or later) and Windows 11, x64.
   Code), alignment, indents, line spacing, space before and after.
 - **Font sizes** from a list or typed freely, half sizes such as 10.5 included.
 - **Every font on the PC**, plus a bundled collection, plus anything you drop in
-  the `fonts/` folder next to the `.exe` — TrueType, OpenType, WOFF, WOFF2 and
-  fonts inside a `.zip` now; Adobe Type 1 and Mac containers in Phase 3.
+  the `fonts/` folder next to the `.exe` — TrueType, OpenType, WOFF, WOFF2,
+  Adobe Type 1, Mac containers, EOT, Type 42, and fonts inside a `.zip`.
 - **Lists, tables, images, hyperlinks, page breaks, horizontal rules.**
 - **Find and replace, spell check, word count.**
 - **Several documents at once** in tabs.
@@ -145,7 +146,7 @@ so compression buys nothing a user would notice and costs something they would.
 | 0 | v1.0 | Skeleton and pipeline — **done** |
 | 1 | v1.1 | Editor core: all formatting, styles, toolbars, shortcuts, status bar — **done** |
 | 2 | v1.2 | Fonts: index, cache, WOFF and WOFF2, font picker, Font Report — **done** |
-| 3 | v1.3 | More font formats: Type 1, Mac containers, EOT, Type 42 |
+| 3 | v1.3 | More font formats: Type 1, Mac containers, EOT, Type 42 — **done** |
 | 4 | v1.4 | IR, the bridge, TXT and DOCX |
 | 5 | v1.5 | Markdown, ODT, RTF |
 | 6 | v1.6 | Lists, tables, images, links |

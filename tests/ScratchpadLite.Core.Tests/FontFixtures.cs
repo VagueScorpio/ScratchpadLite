@@ -112,6 +112,60 @@ internal static class FontFixtures
         return file;
     }
 
+    /// <summary>
+    /// Rewrites a PFB as a PFA: the clear-text segments as they are, the
+    /// binary segment as hex.
+    /// </summary>
+    /// <remarks>
+    /// Built here because no .pfa file was found on this machine, and the PFA
+    /// path through the parser needs testing too. The two forms hold the same
+    /// font, so the parser has to produce identical charstrings from both.
+    /// </remarks>
+    internal static byte[] ToPfa(byte[] pfb)
+    {
+        var pfa = new MemoryStream();
+        var at = 0;
+
+        while (at + 6 <= pfb.Length && pfb[at] == 0x80)
+        {
+            var type = pfb[at + 1];
+
+            if (type == 0x03)
+            {
+                break;
+            }
+
+            var length = (int)BinaryPrimitives.ReadUInt32LittleEndian(pfb.AsSpan(at + 2));
+            at += 6;
+
+            if (length > pfb.Length - at)
+            {
+                break;
+            }
+
+            if (type == 0x01)
+            {
+                pfa.Write(pfb, at, length);
+            }
+            else
+            {
+                // 64 hex characters per line, which is what real PFA files use.
+                var hex = Convert.ToHexString(pfb.AsSpan(at, length));
+
+                for (var i = 0; i < hex.Length; i += 64)
+                {
+                    var line = hex.AsSpan(i, Math.Min(64, hex.Length - i));
+                    pfa.Write(System.Text.Encoding.ASCII.GetBytes(line.ToString()));
+                    pfa.WriteByte((byte)'\n');
+                }
+            }
+
+            at += length;
+        }
+
+        return pfa.ToArray();
+    }
+
     private static byte[] Deflate(byte[] data)
     {
         using var output = new MemoryStream();

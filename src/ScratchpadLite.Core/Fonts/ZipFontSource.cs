@@ -52,6 +52,27 @@ public static class ZipFontSource
     /// </remarks>
     public static void ForEachMember(string zipPath, CancellationToken ct, Action<Member> onMember)
     {
+        ArgumentNullException.ThrowIfNull(onMember);
+
+        ForEachMember(zipPath, ct, (member, _) => onMember(member));
+    }
+
+    /// <summary>
+    /// As <see cref="ForEachMember(string, CancellationToken, Action{Member})"/>,
+    /// but also hands over a way to read another entry of the same archive.
+    /// </summary>
+    /// <remarks>
+    /// For the Type 1 converter, which needs the <c>.pfm</c> or <c>.afm</c>
+    /// sitting beside the font - and inside a .zip, "beside" means another
+    /// entry rather than another file. The archive is already open, so a
+    /// lookup costs nothing; reading ahead to collect them all would mean
+    /// holding the whole archive, which is what this method exists to avoid.
+    /// </remarks>
+    public static void ForEachMember(
+        string zipPath,
+        CancellationToken ct,
+        Action<Member, Func<string, byte[]?>> onMember)
+    {
         ArgumentException.ThrowIfNullOrEmpty(zipPath);
         ArgumentNullException.ThrowIfNull(onMember);
 
@@ -103,7 +124,30 @@ public static class ZipFontSource
                 continue;
             }
 
-            onMember(new Member(entry.FullName, bytes, kind));
+            onMember(
+                new Member(entry.FullName, bytes, kind),
+                wanted =>
+                {
+                    var name = wanted.Replace(Path.DirectorySeparatorChar, '/');
+
+                    foreach (var candidate in archive.Entries)
+                    {
+                        if (string.Equals(candidate.FullName, name, StringComparison.OrdinalIgnoreCase)
+                            && candidate.Length <= Limits.MaxFontFileBytes)
+                        {
+                            try
+                            {
+                                return Read(candidate);
+                            }
+                            catch (Exception ex) when (ex is InvalidDataException or IOException)
+                            {
+                                return null;
+                            }
+                        }
+                    }
+
+                    return null;
+                });
         }
     }
 

@@ -625,3 +625,223 @@ public class FontLicensesTests
         }
     }
 }
+
+/// <summary>
+/// The Phase 3 formats through the folder pipeline (Section 6.6).
+/// </summary>
+public class Phase3PipelineTests : IDisposable
+{
+    private readonly DirectoryInfo _folder = Directory.CreateTempSubdirectory("sp-p3-");
+
+    public Phase3PipelineTests() => AppPaths.Initialize();
+
+    public void Dispose()
+    {
+        try
+        {
+            _folder.Delete(recursive: true);
+        }
+        catch (IOException)
+        {
+        }
+
+        GC.SuppressFinalize(this);
+    }
+
+    [Fact]
+    public void AType1FontInTheFolderIsConvertedAndIndexed()
+    {
+        var source = FontFixtures.Dropped(".pfa").FirstOrDefault();
+
+        if (source is null)
+        {
+            return;        // see tests/Fixtures/Fonts/README.txt
+        }
+
+        var afm = Path.ChangeExtension(source, ".afm");
+
+        File.Copy(source, Path.Combine(_folder.FullName, Path.GetFileName(source)));
+
+        if (File.Exists(afm))
+        {
+            File.Copy(afm, Path.Combine(_folder.FullName, Path.GetFileName(afm)));
+        }
+
+        var index = new FontIndex();
+        FontPreparer.CheckFolder(_folder.FullName, index, null, null, CancellationToken.None);
+
+        var entry = index.Find(Path.GetFileName(source));
+
+        Assert.NotNull(entry);
+        Assert.True(entry!.IsUsable, $"the Type 1 font was {entry.Status}: {entry.Message}");
+        Assert.Equal(FontStatus.Converted, entry.Status);
+        Assert.Contains("Type 1", entry.Message, StringComparison.Ordinal);
+        Assert.NotEmpty(entry.Families);
+
+        // The cached file is a real OpenType font with CFF outlines.
+        var cached = FontCache.PathFor(entry.Sha1, Path.GetExtension(entry.CachedFile));
+        Assert.True(File.Exists(cached));
+
+        var info = FontInspector.Read(File.ReadAllBytes(cached));
+        Assert.True(info.IsCff);
+        Assert.True(info.GlyphCount > 100);
+
+        // Section 6.6.4: Type 1 has no embedding flag, so Preview and Print.
+        Assert.Equal(0x0004, info.FsType);
+    }
+
+    [Fact]
+    public void AnEotInTheFolderIsRecoveredAndIndexed()
+    {
+        var source = FontFixtures.Dropped(".eot").FirstOrDefault();
+
+        if (source is null)
+        {
+            return;
+        }
+
+        File.Copy(source, Path.Combine(_folder.FullName, "Web.eot"));
+
+        var index = new FontIndex();
+        FontPreparer.CheckFolder(_folder.FullName, index, null, null, CancellationToken.None);
+
+        var entry = index.Find("Web.eot");
+
+        Assert.NotNull(entry);
+        Assert.True(entry!.IsUsable, $"the EOT font was {entry.Status}: {entry.Message}");
+        Assert.Contains("EOT", entry.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AMultipleMasterFontIsReportedInTheIndexRatherThanCrashingThePass()
+    {
+        var source = FontFixtures.Dropped(".PFB")
+            .FirstOrDefault(p => Path.GetFileName(p).StartsWith("Z", StringComparison.OrdinalIgnoreCase));
+
+        if (source is null)
+        {
+            return;
+        }
+
+        File.Copy(source, Path.Combine(_folder.FullName, "Master.pfb"));
+
+        var plain = FontFixtures.AnyWindowsFont();
+        Assert.NotNull(plain);
+        File.Copy(plain!, Path.Combine(_folder.FullName, "Plain.ttf"));
+
+        var index = new FontIndex();
+        var result = FontPreparer.CheckFolder(
+            _folder.FullName, index, null, null, CancellationToken.None);
+
+        var entry = index.Find("Master.pfb");
+
+        Assert.NotNull(entry);
+        Assert.False(entry!.IsUsable);
+        Assert.Contains("Multiple Master", entry.Message, StringComparison.Ordinal);
+
+        // And the pass carried on: the ordinary font beside it still got done.
+        Assert.True(index.Find("Plain.ttf")!.IsUsable);
+        Assert.True(result.Prepared >= 1);
+    }
+
+    [Fact]
+    public void AType1FontInsideAZipFindsItsMetricsFileInTheSameArchive()
+    {
+        var source = FontFixtures.Dropped(".pfa").FirstOrDefault();
+        var afm = source is null ? null : Path.ChangeExtension(source, ".afm");
+
+        if (source is null || afm is null || !File.Exists(afm))
+        {
+            return;
+        }
+
+        var zipPath = Path.Combine(_folder.FullName, "pack.zip");
+
+        using (var zip = ZipFile.Open(zipPath, ZipArchiveMode.Create))
+        {
+            zip.CreateEntryFromFile(source, Path.GetFileName(source));
+            zip.CreateEntryFromFile(afm, Path.GetFileName(afm));
+        }
+
+        var index = new FontIndex();
+        FontPreparer.CheckFolder(_folder.FullName, index, null, null, CancellationToken.None);
+
+        var entry = index.Find($"pack.zip!{Path.GetFileName(source)}");
+
+        Assert.NotNull(entry);
+        Assert.True(entry!.IsUsable, $"the zipped Type 1 font was {entry.Status}: {entry.Message}");
+
+        // "Beside the font" means another entry of the same archive, which is
+        // the whole reason ForEachMember hands over a sibling reader.
+        Assert.NotEmpty(entry.Families);
+    }
+}
+
+/// <summary>
+/// What the Font Report says about a Type 1 font's metrics file
+/// (Section 6.6.3).
+/// </summary>
+public class MetricsFileReportingTests : IDisposable
+{
+    private readonly DirectoryInfo _folder = Directory.CreateTempSubdirectory("sp-metrics-");
+
+    public MetricsFileReportingTests() => AppPaths.Initialize();
+
+    public void Dispose()
+    {
+        try
+        {
+            _folder.Delete(recursive: true);
+        }
+        catch (IOException)
+        {
+        }
+
+        GC.SuppressFinalize(this);
+    }
+
+    [Fact]
+    public void AMetricsFileWithItsFontBesideItIsNotReportedAsAProblem()
+    {
+        var source = FontFixtures.Dropped(".pfa").FirstOrDefault();
+        var afm = source is null ? null : Path.ChangeExtension(source, ".afm");
+
+        if (source is null || afm is null || !File.Exists(afm))
+        {
+            return;
+        }
+
+        File.Copy(source, Path.Combine(_folder.FullName, Path.GetFileName(source)));
+        File.Copy(afm, Path.Combine(_folder.FullName, Path.GetFileName(afm)));
+
+        var index = new FontIndex();
+        FontPreparer.CheckFolder(_folder.FullName, index, null, null, CancellationToken.None);
+
+        var entry = index.Find(Path.GetFileName(afm));
+
+        Assert.NotNull(entry);
+
+        // Telling someone the outline file is missing when it is sitting right
+        // next to the metrics file sends them looking for what they have.
+        Assert.DoesNotContain("missing", entry!.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(Path.GetFileName(source), entry.Message, StringComparison.Ordinal);
+        Assert.Equal(FontStatus.Skipped, entry.Status);
+    }
+
+    [Fact]
+    public void AMetricsFileOnItsOwnSaysTheOutlineIsMissing()
+    {
+        File.WriteAllText(
+            Path.Combine(_folder.FullName, "Orphan.afm"),
+            "StartFontMetrics 4.1\nFontName Orphan\nEndFontMetrics\n");
+
+        var index = new FontIndex();
+        FontPreparer.CheckFolder(_folder.FullName, index, null, null, CancellationToken.None);
+
+        var entry = index.Find("Orphan.afm");
+
+        Assert.NotNull(entry);
+        Assert.Equal(FontStatus.Unsupported, entry!.Status);
+        Assert.Contains("missing", entry.Message, StringComparison.OrdinalIgnoreCase);
+    }
+}

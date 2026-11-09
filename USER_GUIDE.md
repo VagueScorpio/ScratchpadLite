@@ -94,14 +94,11 @@ Loaded directly:
 
 Converted once and then cached, so it only ever costs you the first time:
 
-`.woff` `.woff2`
+`.woff` `.woff2` `.pfb` `.pfa` `.dfont` `._*` (Mac AppleDouble) `.eot` `.t42`
 
 Fonts inside a `.zip` are read straight out of the archive — nothing is
-unpacked into `fonts/`.
-
-**Not yet:** `.pfb` `.pfa` (Adobe Type 1), `.dfont` and `._*` (Mac
-containers), `.eot`, `.t42`. These are recognised and named in the Font
-Report, which says they cannot be used yet rather than ignoring them.
+unpacked into `fonts/`. A `.pfb` or `.pfa` with its `.pfm` or `.afm` beside it
+is handled as a pair, inside a zip as well as on disk.
 
 If a Type 1 font (`.pfb` or `.pfa`) has a `.pfm` or `.afm` file beside it, keep
 them together — those carry the metrics and the proper Windows font names, which

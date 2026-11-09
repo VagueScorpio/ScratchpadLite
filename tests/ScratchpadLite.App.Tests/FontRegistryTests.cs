@@ -124,7 +124,23 @@ public class FontRegistryTests
 
             await ready.WaitAsync(TimeSpan.FromSeconds(30));
 
+            // The registry is static and another test may already have run the
+            // first pass, in which case IndexReady was already complete and the
+            // folder scan for this font is still in flight. Wait for the family
+            // rather than assuming the order tests run in.
             var family = entry.Families[0];
+
+            for (var waited = 0; waited < 100; waited++)
+            {
+                if (FontRegistry.FolderFamilyNames().Contains(family, StringComparer.OrdinalIgnoreCase))
+                {
+                    break;
+                }
+
+                FontRegistry.Reload();
+                await Task.Delay(100);
+            }
+
             Assert.Contains(family, FontRegistry.FolderFamilyNames(), StringComparer.OrdinalIgnoreCase);
 
             var resolved = AppHost.Run(() => FontRegistry.Resolve(family));

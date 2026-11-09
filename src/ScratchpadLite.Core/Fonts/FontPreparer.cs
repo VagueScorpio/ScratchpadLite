@@ -229,14 +229,25 @@ public static class FontPreparer
                         throwOnEndOfStream: false);
                 }
 
+                var bytes = new ArraySegment<byte>(buffer, 0, read);
+
+                // A Mac container can hold several fonts, so it gets the same
+                // treatment as a .zip: a card for the container and one per
+                // font inside it.
+                if (file.Kind == FontFileKind.MacResource)
+                {
+                    return PrepareMacContainer(file, bytes);
+                }
+
                 return
                 [
                     PrepareBytes(
                         file.RelativePath,
                         file.Kind,
-                        new ArraySegment<byte>(buffer, 0, read),
+                        bytes,
                         file.Length,
-                        file.ModifiedUtc)
+                        file.ModifiedUtc,
+                        SiblingOnDisk(file.Path))
                 ];
             }
             finally
@@ -268,7 +279,7 @@ public static class FontPreparer
         try
         {
             // One member at a time, so a large archive is never held whole.
-            ZipFontSource.ForEachMember(file.Path, ct, member =>
+            ZipFontSource.ForEachMember(file.Path, ct, (member, sibling) =>
             {
                 ct.ThrowIfCancellationRequested();
 
@@ -282,7 +293,8 @@ public static class FontPreparer
                 try
                 {
                     cards.Add(PrepareBytes(
-                        path, member.Kind, member.Bytes, member.Bytes.Length, file.ModifiedUtc));
+                        path, member.Kind, member.Bytes, member.Bytes.Length, file.ModifiedUtc,
+                        sibling));
                 }
                 catch (Exception ex)
                 {
@@ -320,7 +332,8 @@ public static class FontPreparer
         FontFileKind kind,
         ArraySegment<byte> bytes,
         long sourceLength,
-        DateTime modifiedUtc)
+        DateTime modifiedUtc,
+        Func<string, byte[]?> sibling)
     {
         FontIndex.Entry Fail(FontStatus status, string message) =>
             new(indexPath, sourceLength, modifiedUtc, "", "", [], status == FontStatus.Failed ? message : null)
@@ -341,23 +354,20 @@ public static class FontPreparer
                 return Fail(FontStatus.Skipped, "Licence or readme text, read for FONT_LICENSES.txt.");
 
             case FontFileKind.Type1Metrics:
-                return Fail(
-                    FontStatus.Unsupported,
-                    "Metrics file only. The outline file (.pfb) is missing.");
+            {
+                // A .pfm or .afm is not a font, but it is not a problem either
+                // when the font it belongs to is sitting next to it - saying
+                // "the outline file is missing" about a pair that is complete
+                // sends the user looking for something they already have.
+                var outline = OutlineBeside(indexPath, sibling);
 
-            // Phase 3 formats. They are detected and named now so the Font
-            // Report tells the truth about them rather than staying silent.
-            case FontFileKind.Type1:
-                return Fail(FontStatus.Unsupported, "Adobe Type 1 fonts cannot be used yet.");
+                return outline is null
+                    ? Fail(
+                        FontStatus.Unsupported,
+                        "Metrics file only. The outline file (.pfb) is missing.")
+                    : Fail(FontStatus.Skipped, $"Metrics for {outline}.");
+            }
 
-            case FontFileKind.MacResource:
-                return Fail(FontStatus.Unsupported, "Mac font containers cannot be used yet.");
-
-            case FontFileKind.Eot:
-                return Fail(FontStatus.Unsupported, "EOT web fonts cannot be used yet.");
-
-            case FontFileKind.Type42:
-                return Fail(FontStatus.Unsupported, "Type 42 fonts cannot be used yet.");
         }
 
         ReadOnlyMemory<byte> sfnt;
@@ -382,6 +392,33 @@ public static class FontPreparer
                         sfnt = Woff2Decoder.ToSfnt(input);
                     }
 
+                    converted = true;
+                    break;
+
+                case FontFileKind.Eot:
+                    using (var input = AsStream(bytes))
+                    {
+                        sfnt = EotDecoder.ToSfnt(input);
+                    }
+
+                    converted = true;
+                    break;
+
+                case FontFileKind.Type42:
+                    using (var input = AsStream(bytes))
+                    {
+                        sfnt = Type42Extractor.ToSfnt(input);
+                    }
+
+                    converted = true;
+                    break;
+
+                case FontFileKind.Type1:
+                    // The only converter that needs more than the font file:
+                    // a .pfm or .afm beside it carries the Windows family name
+                    // and the style bits, which is what makes Regular, Bold and
+                    // Italic group into one family (Section 6.6.3).
+                    sfnt = Type1.Type1Converter.Convert(bytes.AsSpan(), indexPath, sibling).Sfnt;
                     converted = true;
                     break;
 
@@ -444,9 +481,7 @@ public static class FontPreparer
             HasLatinLetters = info.HasLatinLetters,
             IsVariable = info.IsVariable,
             GlyphCount = info.GlyphCount,
-            Message = converted
-                ? $"Converted ({(kind == FontFileKind.Woff ? "WOFF" : "WOFF2")} → OpenType)"
-                : "Loaded",
+            Message = converted ? $"Converted ({Describe(kind)} → OpenType)" : "Loaded",
         };
     }
 
@@ -538,6 +573,132 @@ public static class FontPreparer
             $"after preparing fonts: {GC.GetTotalMemory(false) / (1024 * 1024)} MB managed, "
             + $"{info.TotalCommittedBytes / (1024 * 1024)} MB committed, "
             + $"{info.HeapSizeBytes / (1024 * 1024)} MB heap");
+    }
+
+    /// <summary>
+    /// The Type 1 outline file a metrics file belongs to, or null when there
+    /// is none beside it.
+    /// </summary>
+    private static string? OutlineBeside(string metricsPath, Func<string, byte[]?> sibling)
+    {
+        var folder = Path.GetDirectoryName(metricsPath) ?? "";
+        var baseName = Path.GetFileNameWithoutExtension(metricsPath);
+
+        foreach (var extension in new[] { ".pfb", ".PFB", ".pfa", ".PFA" })
+        {
+            var candidate = baseName + extension;
+
+            if (sibling(Path.Combine(folder, candidate)) is not null)
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private static string Plural(int fonts) => fonts == 1 ? "1 font inside" : $"{fonts} fonts inside";
+
+    /// <summary>How the Font Report names a converted format.</summary>
+    private static string Describe(FontFileKind kind) => kind switch
+    {
+        FontFileKind.Woff => "WOFF",
+        FontFileKind.Woff2 => "WOFF2",
+        FontFileKind.Type1 => "Type 1",
+        FontFileKind.Eot => "EOT",
+        FontFileKind.Type42 => "Type 42",
+        FontFileKind.MacResource => "Mac container",
+        _ => kind.ToString(),
+    };
+
+    /// <summary>
+    /// Reads a file next to a font on disk, for the Type 1 converter's .pfm
+    /// and .afm lookup.
+    /// </summary>
+    private static Func<string, byte[]?> SiblingOnDisk(string fontPath)
+    {
+        var folder = Path.GetDirectoryName(fontPath) ?? "";
+
+        return wanted =>
+        {
+            try
+            {
+                var name = Path.GetFileName(wanted);
+
+                // Matched case-insensitively by scanning the folder, because a
+                // font shipped as NAME.PFB routinely has name.pfm beside it.
+                foreach (var candidate in Directory.EnumerateFiles(folder))
+                {
+                    if (string.Equals(Path.GetFileName(candidate), name, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return File.ReadAllBytes(candidate);
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // No metrics file is not an error: the converter falls back to
+                // splitting the PostScript name.
+            }
+
+            return null;
+        };
+    }
+
+    /// <summary>
+    /// A Mac container, which may hold several fonts (Section 6.6.3).
+    /// </summary>
+    /// <remarks>
+    /// Keyed like zip members - container.dfont!1 - so an unchanged container
+    /// is skipped by size and timestamp while each font inside keeps its own
+    /// card in the report.
+    /// </remarks>
+    private static IReadOnlyList<FontIndex.Entry> PrepareMacContainer(
+        FontScanner.Found file,
+        ArraySegment<byte> bytes)
+    {
+        MacFontExtractor.Extracted extracted;
+
+        try
+        {
+            using var input = AsStream(bytes);
+            extracted = MacFontExtractor.Read(input);
+        }
+        catch (FontFormatException ex)
+        {
+            // The common case, and worth its own message: a Mac font copied to
+            // Windows through a filesystem with no resource forks.
+            return [Card(file, FontStatus.Unsupported, ex.Message)];
+        }
+
+        var cards = new List<FontIndex.Entry>
+        {
+            Card(
+                file,
+                FontStatus.Loaded,
+                Plural(extracted.Sfnts.Count + extracted.Type1Pfb.Count))
+                with { CachedFile = "", Families = [] },
+        };
+
+        var index = 0;
+
+        foreach (var sfnt in extracted.Sfnts)
+        {
+            var path = $"{file.RelativePath}{ZipFontSource.EntrySeparator}{++index}";
+
+            cards.Add(PrepareBytes(
+                path, FontFileKind.Direct, sfnt, sfnt.Length, file.ModifiedUtc, _ => null));
+        }
+
+        foreach (var pfb in extracted.Type1Pfb)
+        {
+            var path = $"{file.RelativePath}{ZipFontSource.EntrySeparator}{++index}";
+
+            cards.Add(PrepareBytes(
+                path, FontFileKind.Type1, pfb, pfb.Length, file.ModifiedUtc, _ => null));
+        }
+
+        return cards;
     }
 
     /// <summary>A stream over a pooled segment, without copying it.</summary>
