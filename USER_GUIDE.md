@@ -133,7 +133,8 @@ to something else.
 
 ### What opens and saves
 
-`.txt` `.docx` `.md` `.rtf` `.odt`
+`.docx` and `.txt` work now. `.md`, `.rtf` and `.odt` arrive in Phase 5; until
+then the Open dialog does not offer them.
 
 **Old `.doc` files are not supported.** Open one in Word or LibreOffice and save
 it as `.docx` first. Scratchpad Lite will tell you this rather than trying and

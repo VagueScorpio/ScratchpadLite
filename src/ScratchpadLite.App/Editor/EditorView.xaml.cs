@@ -144,6 +144,31 @@ public partial class EditorView : UserControl
     }
 
     /// <summary>
+    /// Re-applies everything that belongs to the control rather than to the
+    /// document, after the document has been replaced.
+    /// </summary>
+    /// <remarks>
+    /// Setting <c>RichTextBox.Document</c> swaps the whole tree, and anything
+    /// attached to the old one goes with it: the paste filter's handler, the
+    /// zoom, the page view. Without this, opening a file silently turns off
+    /// the paste filter and resets the zoom to 100%.
+    /// </remarks>
+    internal void ReattachToNewDocument(Settings settings, StyleSheet styles)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(styles);
+
+        PasteFilter.Attach(EditorBox);
+
+        Zoom = settings.Zoom;
+        PageView = settings.PageView;
+        DarkPaper = settings.DarkPaper;
+
+        ApplyPageView();
+        OnWordCountTick(this, EventArgs.Empty);
+    }
+
+    /// <summary>
     /// Switches on the spell checker. Called after the first frame, never in the
     /// constructor: turning it on loads the Windows spell checker (Section 2.1).
     /// </summary>

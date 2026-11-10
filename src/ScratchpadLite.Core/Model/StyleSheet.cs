@@ -93,6 +93,28 @@ public sealed class StyleSheet
     public bool Contains(string name) => _styles.ContainsKey(name);
 
     /// <summary>
+    /// The font a style actually uses: its own, or Normal's where it has none.
+    /// </summary>
+    /// <remarks>
+    /// Most styles in the sheet leave <see cref="ParagraphStyle.Family"/> null,
+    /// meaning "whatever Normal uses" - so a user who changes Normal to
+    /// Georgia changes the headings too, which is what they would expect.
+    /// <para>
+    /// Both sides of the bridge have to resolve it the same way. Leaving null
+    /// to mean "don't set it and let WPF decide" is not the same thing: the
+    /// builder then produced a paragraph inheriting WPF's own default font,
+    /// and the walker read that back as the run's font, so a heading came out
+    /// of a round trip with a font nobody had chosen.
+    /// </para>
+    /// </remarks>
+    public string? FamilyFor(ParagraphStyle style)
+    {
+        ArgumentNullException.ThrowIfNull(style);
+
+        return style.Family ?? _styles[NormalStyleName].Family;
+    }
+
+    /// <summary>
     /// Loads <c>data/styles.json</c>, or falls back to the built-in sheet when
     /// the file is missing or damaged. A damaged file is never overwritten
     /// silently: the user may have been editing it.

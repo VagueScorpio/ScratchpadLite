@@ -5,13 +5,10 @@ no .NET runtime, no Office, nothing else needed on the PC.
 
 Windows 10 (version 1809 or later) and Windows 11, x64.
 
-> **Status: Phase 3 — every font format.**
-> You can type and format, and the `fonts/` folder takes almost anything:
-> `.ttf`, `.otf`, `.ttc`, `.woff`, `.woff2`, Adobe Type 1 (`.pfb`, `.pfa`), Mac
-> containers (`.dfont`, `._*`), `.eot`, `.t42`, or a `.zip` of any of them.
-> Everything is prepared in the background after the window is already up, and
-> Tools → Font Report says what happened to every file. Opening and saving
-> documents, tabs, find and spell check are still ahead —
+> **Status: Phase 4 — opening and saving.**
+> You can open and save `.docx` and `.txt` files, with everything the editor
+> can do surviving the trip. The `fonts/` folder takes almost any font format.
+> Markdown, ODT and RTF, tabs, find and spell check are still ahead —
 > [Build Phases](#build-phases) tracks what lands when.
 
 ## What it will do
@@ -147,7 +144,7 @@ so compression buys nothing a user would notice and costs something they would.
 | 1 | v1.1 | Editor core: all formatting, styles, toolbars, shortcuts, status bar — **done** |
 | 2 | v1.2 | Fonts: index, cache, WOFF and WOFF2, font picker, Font Report — **done** |
 | 3 | v1.3 | More font formats: Type 1, Mac containers, EOT, Type 42 — **done** |
-| 4 | v1.4 | IR, the bridge, TXT and DOCX |
+| 4 | v1.4 | IR, the bridge, TXT and DOCX — **done** |
 | 5 | v1.5 | Markdown, ODT, RTF |
 | 6 | v1.6 | Lists, tables, images, links |
 | 7 | v1.7 | Tabs, find and replace, spell check |

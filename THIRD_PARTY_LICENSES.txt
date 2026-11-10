@@ -13,7 +13,23 @@ recorded when it goes in.
 Shipped in the application
 --------------------------
 
-  No packages, through Phase 2.
+  DocumentFormat.OpenXml                              3.5.1
+    License  MIT
+    Why      Reading and writing .docx (Section 7.2). It is Microsoft's own
+             Open XML SDK, actively maintained, and the only complete option.
+    Cost     Measured when it went in, as Section 2.1 requires: the .exe grew
+             from 142.8 MB to 167.5 MB, so about 25 MB. Warm startup did not
+             move (705 ms before, 683 ms after), because FormatRegistry creates
+             handlers through Lazy<T> and nothing loads the SDK until a .docx is
+             actually opened or saved. A test asserts that building the Open
+             dialog filter loads neither SDK assembly.
+
+  System.IO.Packaging                                 10.0.14
+    License  MIT
+    Why      Pinned explicitly. The version the Open XML SDK asks for
+             transitively has a known high-severity advisory
+             (GHSA-f32c-w444-8ppv), and this project builds warnings as errors,
+             so the restore refused it rather than letting it through quietly.
 
   The .NET 10 runtime and WPF are inside the single-file .exe. They are
   Microsoft's, under the MIT license:
@@ -41,23 +57,18 @@ Code written here from a published reference
 Planned, with the phase that adds them
 --------------------------------------
 
-  DocumentFormat.OpenXml                              Phase 4
-    License  MIT
-    Why      Reading and writing .docx. It is Microsoft's own Open XML SDK,
-             actively maintained, and the only complete option.
-    Note     Loaded lazily through FormatRegistry, so it costs nothing at
-             startup. Record its startup and size cost when it is added.
-
   Markdig                                             Phase 5
     License  BSD-2-Clause
     Why      Reading Markdown. The standard .NET Markdown parser. Writing
              Markdown is hand-written, so only the reader needs it.
     Note     Also lazily loaded.
 
-  System.Text.Encoding.CodePages                      Phase 4 or 5
-    License  MIT
-    Why      Windows-1252 text files. .NET Core dropped the legacy code pages,
-             and plenty of .txt files out there are not UTF-8.
+  System.Text.Encoding.CodePages                      not needed
+    Why      Windows-1252 text files. The blueprint expected a package for
+             this, and .NET 10 has it built in: adding the reference was
+             refused with NU1510, "this package is automatically available".
+             CodePagesEncodingProvider is registered on first use in
+             TxtFormat with no package at all.
 
 
 Deliberately not used

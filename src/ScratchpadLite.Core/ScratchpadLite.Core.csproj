@@ -17,13 +17,22 @@
 
     <!-- The default paragraph style sheet (Section 6.5). Copied to
          data\styles.json on first run so the user can edit it. -->
-    <EmbeddedResource Include="..\ScratchpadLite.App\Resources\default-styles.json"
-                      LogicalName="ScratchpadLite.Core.default-styles.json" />
+    <EmbeddedResource Include="..\ScratchpadLite.App\Resources\default-styles.json" LogicalName="ScratchpadLite.Core.default-styles.json" />
 
     <!-- Adobe Glyph List, used by the Type 1 converter (Section 6.6.4). -->
-    <EmbeddedResource Include="..\ScratchpadLite.App\Resources\glyphlist.txt"
-                      LogicalName="ScratchpadLite.Core.glyphlist.txt"
-                      Condition="Exists('..\ScratchpadLite.App\Resources\glyphlist.txt')" />
+    <EmbeddedResource Include="..\ScratchpadLite.App\Resources\glyphlist.txt" LogicalName="ScratchpadLite.Core.glyphlist.txt" Condition="Exists('..\ScratchpadLite.App\Resources\glyphlist.txt')" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- DOCX reading and writing (Section 7.2). Loaded lazily through
+         FormatRegistry, so it costs nothing at startup.
+
+         System.IO.Packaging is pinned explicitly: the version the Open XML SDK
+         asks for transitively has a known high-severity advisory
+         (GHSA-f32c-w444-8ppv), and this project builds warnings as errors, so
+         the restore refused it rather than letting it through quietly. -->
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.5.1" />
+    <PackageReference Include="System.IO.Packaging" Version="10.0.14" />
   </ItemGroup>
 
   <!-- Packages are added per phase, never up front (Section 2.1 "lean code rules"):

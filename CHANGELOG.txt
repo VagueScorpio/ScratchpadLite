@@ -8,10 +8,202 @@ underneath. Old entries are never removed.
 Contents
 --------
 
+  v1.4  2026-11-09  Phase 4: the IR, the bridge, TXT and DOCX
   v1.3  2026-11-09  Phase 3: the rest of the font formats
   v1.2  2026-11-08  Phase 2: fonts
   v1.1  2026-11-08  Phase 1: editor core
   v1.0  2026-11-08  Phase 0: skeleton and pipeline
+
+
+--------------------------------------------------------------------------------
+v1.4  -  2026-11-09  -  Phase 4: the IR, the bridge, TXT and DOCX
+--------------------------------------------------------------------------------
+
+What
+----
+
+Files open and save. The architecture the whole of Section 4 is built around
+is now real rather than described.
+
+  * IrNormalizer and IrComparer: canonical form and content comparison for
+    documents, which is what makes the round-trip test possible, plus a
+    readable dump of a document for when it fails.
+  * FlowBuilder: IR to FlowDocument. Paragraphs, the eleven styles, alignment,
+    indents, spacing, line spacing, page breaks, lists nested into WPF List
+    elements, tables with spans and shading, horizontal rules, images with
+    their original bytes kept, hyperlinks, and the five underline kinds.
+  * FlowWalker: FlowDocument back to IR, reading each run's effective values
+    and recording only what differs from its paragraph style.
+  * SpProps gains the markers the bridge needs: the horizontal-rule style
+    name, a hyperlink's original target, and an image's bytes and MIME type.
+  * IFormatHandler and FormatRegistry: the format table, the Open and Save As
+    dialog filters, and the capability sets the save warning reads.
+  * IrFeatures: which features a document actually uses, so the save warning
+    names only what this file would lose.
+  * TxtFormat: encoding detection (BOM, then strict UTF-8, then
+    Windows-1252), line-ending detection and preservation, lists with markers,
+    tables as tab-separated rows.
+  * DocxWriter: the body, a full style sheet, numbering definitions, tables
+    with row and column spans, images as image parts, page setup and the core
+    properties.
+  * DocxReader: style resolution through basedOn and the document defaults,
+    runs, paragraph styles matched by name, lists through the numbering
+    definitions, tables, images, hyperlinks, page setup and metadata.
+  * FileOps: the safe-save path - temporary file in the same folder, flushed
+    to disk, then File.Replace with an optional .bak - and a plain sentence for
+    each of read-only, locked, disk-full, folder-gone and path-too-long.
+  * DocumentSession and DocumentIo: one open document, and the open/save flow
+    from Section 4.4 - read and write off the UI thread, build and walk on it.
+  * The File menu works: New, Open, Open Recent, Save, Save As. Plus the
+    window title with a dirty marker, a warnings bar for what a file could not
+    carry, the lossy-format dialog, the changed-on-disk check, the
+    unsaved-changes prompt on close, and files named on the command line.
+  * RecentFiles, written on every open and save so it survives a crash.
+  * 415 tests passing (270 in Core, 145 in App).
+
+Measured on this PC:
+
+    warm startup      683 ms median of runs 2-5 (Phase 3: 705 ms)
+    with a .docx on   660 ms, and the file was open and rendered before the
+    the command line  measurement ended
+    idle memory       146.5 MB working set, 83.4 MB private
+    with a document    163.2 MB working set
+    .exe              167.5 MB, up from 142.8 MB
+    log               no warnings and no errors
+
+Why
+---
+
+The IR earns its place in this phase, so it is worth restating what it buys. A
+FlowDocument belongs to the thread that owns the window, which means a format
+handler that worked on one directly would have to parse a 200-page .docx on the
+UI thread, and the window would be frozen while it did. Because every handler
+reads and writes plain records instead, the slow part runs on a background
+thread and only the final tree build touches the UI. The same split is why
+every format handler is tested without opening a window at all.
+
+The other half of the argument is the number of conversions. Five formats and
+one editor is five converters through an IR, and would be ten without one -
+and each of those ten would have its own ideas about what a heading is.
+
+The rule both sides of the bridge follow, and the reason the round-trip test
+can be strict: only direct formatting is written. A run whose font and size
+match its paragraph style carries nothing at all. Without that rule a heading
+saved to .docx would come out as directly formatted 20-point bold text that
+Word no longer knows is a heading - no navigation pane entry, no table of
+contents, and no way to restyle it.
+
+How
+---
+
+The round-trip test is the one Section 6.4 calls the most important in the
+project, and it is 56 cases: every character format, every underline kind,
+every paragraph style, every list format, nesting, tables with spans and
+shading, images, links, line breaks, page breaks, metadata and page setup,
+then one document using all of it at once. It compares
+Normalize(Walk(Build(d))) with Normalize(d), and the normaliser is allowed to
+discard only what a reader could not perceive: adjacent runs with identical
+formatting merged, empty runs dropped, colours upper-cased, sizes rounded to
+three decimal places because they make the trip through DIPs and 10.5 pt comes
+back as 10.499999999999998. Every other difference is a bug, and it found
+three.
+
+  * A list that changed kind silently lost its numbers. The builder gathered
+    each run of consecutive list paragraphs into one WPF List element, so a
+    numbered list immediately after a bulleted one was folded into the bullet
+    list and came back out as bullets. It now starts a new list whenever the
+    marker changes, and returns several roots rather than one.
+
+  * A style with no font of its own resolved to whatever WPF felt like. Most
+    styles in the sheet leave Family null, meaning "whatever Normal uses", and
+    the builder took that literally and set nothing - so the paragraph
+    inherited WPF's own default font and the walker read that back as the
+    run's font. A heading came out of a round trip in a font nobody had
+    chosen. Both sides now resolve it through StyleSheet.FamilyFor.
+
+  * A hyperlink's blue was being recorded as a colour someone chose. A run
+    inside a Hyperlink reports the link style's blue as its effective
+    foreground, and the walker wrote it into the IR as direct formatting.
+
+And the .docx writer had three of its own, all of which produced files that
+looked fine until something checked them properly.
+
+  * WordprocessingML is a sequence, not a set. w:rPr must hold its children in
+    one specific order, and a file with w:sz before w:b is invalid even though
+    every element in it is legal - Word refuses it as unreadable content. The
+    same applies to w:pPr, where spacing comes before indentation and both
+    before justification, and to w:style, where pPr comes before rPr. The
+    writer now puts them in order from one list per element rather than in the
+    order the code happens to produce them. The SDK's own OpenXmlValidator is
+    what caught it, which is exactly why Section 7.2 asks for it.
+
+  * Row spans were written with no continuation cells. Word spans rows by
+    marking the top cell "restart" and putting a "continue" cell in each row
+    below it. The IR leaves those out - a spanned cell simply occupies the
+    rows beneath - so the writer has to put them back, and without that a
+    two-row span came out of a file as a one-row cell.
+
+  * The Code style's own shading came back as a highlight. A style with
+    shading gives every run in it that shading as an effective value, and the
+    reader was recording it as something the user had applied.
+
+A note on links: Uri canonicalises, so "https://example.com" comes back as
+"https://example.com/". That is the same address by the URI specification
+rather than a loss, so IrNormalizer puts absolute URLs through Uri and
+compares them that way. Anything that is not an absolute URL - a relative
+path, a bookmark, or something a file simply claimed - is left exactly as it
+was.
+
+Dependencies
+------------
+
+DocumentFormat.OpenXml 3.5.1, MIT. Section 2.1 says the size and startup cost
+of a package is measured and recorded when it goes in, so: the .exe grew from
+142.8 MB to 167.5 MB, which is about 25 MB, and warm startup did not move -
+705 ms before, 683 ms after. The reason startup is unaffected is that
+FormatRegistry creates every handler through Lazy<T> and its format table
+mentions no format type outside a lambda body, so nothing loads the SDK until
+a .docx is actually opened or saved. A test asserts that: it builds the Open
+dialog filter and then checks that neither SDK assembly has been loaded.
+
+Twenty-five megabytes is a real cost on a 167 MB .exe and it is worth saying
+plainly. The alternative is writing a .docx reader and writer by hand, which
+is thousands of lines of someone else's XML schema, or not supporting Word
+documents - and the latter is not on the table.
+
+Two smaller notes:
+
+  * System.IO.Packaging is pinned at 10.0.14 explicitly. The version the Open
+    XML SDK asks for transitively has a known high-severity advisory
+    (GHSA-f32c-w444-8ppv), and because this project builds warnings as errors
+    the restore refused it rather than letting it through quietly - which is
+    the warnings-as-errors setting earning its place.
+  * System.Text.Encoding.CodePages was not needed after all. The blueprint
+    expected a package for Windows-1252; .NET 10 has it built in, and adding
+    the reference was refused with NU1510, "this package is automatically
+    available".
+
+Not built in this phase
+-----------------------
+
+  * Markdown, ODT and RTF are Phase 5, as planned. The Open dialog does not
+    offer them, so nothing pretends to work.
+  * Only the first file named on the command line is opened. Tabs are Phase 7;
+    until then a second file would have nowhere to go, and the status bar says
+    so rather than dropping it silently.
+  * An image pasted into the editor has no original bytes to keep, so the
+    walker skips it. Phase 6 encodes those as PNG when pasting is wired up.
+  * The missing-font bar now has a caller - opening a document - which it did
+    not in Phase 2.
+
+Watch
+-----
+
+Idle working set is 146.5 MB against the 150 MB in Section 2.1, and 163.2 MB
+with a document open. Private bytes are 83.4 MB. The question of which figure
+Section 2.1 means has been open since the Phase 1 report; on the working-set
+reading there is now effectively no headroom left, and Phase 6's tables and
+images will not make that better.
 
 
 --------------------------------------------------------------------------------

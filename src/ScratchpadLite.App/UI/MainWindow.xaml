@@ -20,12 +20,12 @@
     <DockPanel>
         <Menu DockPanel.Dock="Top" x:Name="MainMenu">
             <MenuItem Header="_File">
-                <MenuItem Header="New Tab" Command="{x:Static ui:Commands.NewTab}" IsEnabled="False" />
-                <MenuItem Header="Open..." Command="{x:Static ui:Commands.Open}" IsEnabled="False" />
-                <MenuItem Header="Open Recent" IsEnabled="False" />
+                <MenuItem Header="New" Command="{x:Static ui:Commands.NewTab}" />
+                <MenuItem Header="Open..." Command="{x:Static ui:Commands.Open}" />
+                <MenuItem x:Name="OpenRecentMenu" Header="Open Recent" SubmenuOpened="OnOpenRecentOpened" />
                 <Separator />
-                <MenuItem Header="Save" Command="{x:Static ui:Commands.Save}" IsEnabled="False" />
-                <MenuItem Header="Save As..." Command="{x:Static ui:Commands.SaveAs}" IsEnabled="False" />
+                <MenuItem Header="Save" Command="{x:Static ui:Commands.Save}" />
+                <MenuItem Header="Save As..." Command="{x:Static ui:Commands.SaveAs}" />
                 <MenuItem Header="Save All" Command="{x:Static ui:Commands.SaveAll}" IsEnabled="False" />
                 <MenuItem x:Name="AutoSaveMenuItem" Header="AutoSave" IsCheckable="True" IsEnabled="False" />
                 <Separator />
@@ -189,6 +189,30 @@
         <ui:Toolbars x:Name="FormatToolbars" DockPanel.Dock="Top" />
 
         <ui:StatusBar x:Name="Status" DockPanel.Dock="Bottom" />
+
+        <!-- Warnings from opening a file (Section 4.4): what the format could
+             not carry, an encoding that had to be guessed, an image that could
+             not be read. Dismissable, because they are information rather than
+             a problem to fix. -->
+        <Border x:Name="OpenWarningsBar"
+                DockPanel.Dock="Top"
+                Visibility="Collapsed"
+                Padding="10,6"
+                Background="{DynamicResource ChromeBackground}"
+                BorderBrush="{DynamicResource BorderBrushSoft}"
+                BorderThickness="0,0,0,1">
+            <DockPanel>
+                <Button DockPanel.Dock="Right"
+                        Content="Dismiss"
+                        MinWidth="72"
+                        Margin="8,0,0,0"
+                        Click="OnDismissOpenWarnings" />
+
+                <TextBlock x:Name="OpenWarningsText"
+                           VerticalAlignment="Center"
+                           TextWrapping="Wrap" />
+            </DockPanel>
+        </Border>
 
         <!-- The missing-font bar (Section 6.6). It sits above the editor rather
              than in a dialog, because it is information about the document you

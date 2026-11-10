@@ -48,7 +48,7 @@ internal static class FormatCommands
     internal const double MaxSizePt = 1638;
 
     /// <summary>Super and subscript shrink the text to this share of its size (Section 6.8).</summary>
-    private const double VerticalShrink = 0.65;
+    internal const double VerticalShrink = 0.65;
 
     // ------------------------------------------------------- character ------
 
@@ -129,7 +129,7 @@ internal static class FormatCommands
     /// supported by WPF at all: it is drawn with a tiled wave brush, which is an
     /// approximation, and the user guide says so.
     /// </remarks>
-    private static IEnumerable<TextDecoration> UnderlineDecorations(UnderlineKind kind)
+    internal static IEnumerable<TextDecoration> UnderlineDecorations(UnderlineKind kind)
     {
         switch (kind)
         {

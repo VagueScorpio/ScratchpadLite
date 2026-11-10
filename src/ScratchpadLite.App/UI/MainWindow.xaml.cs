@@ -59,6 +59,7 @@ public partial class MainWindow : Window
         Editor.ApplyDefaults(_settings, _styles);
         Editor.FormatStateChanged += OnFormatStateChanged;
         Editor.CountsChanged += OnCountsChanged;
+        Editor.DocumentChanged += (_, _) => OnDocumentChanged();
 
         PasteFilter.Attach(Editor.Editor);
 
@@ -139,6 +140,10 @@ public partial class MainWindow : Window
         var rtb = Editor.Editor;
 
         // ---- File ----
+        Bind(Commands.NewTab, _ => NewDocument());
+        Bind(Commands.Open, _ => _ = OpenWithDialogAsync());
+        Bind(Commands.Save, _ => _ = SaveAsync(saveAs: false));
+        Bind(Commands.SaveAs, _ => _ = SaveAsync(saveAs: true));
         Bind(Commands.Exit, _ => Close());
         Bind(Commands.OpenFontFolder, _ => OpenFontFolder());
 
@@ -409,6 +414,9 @@ public partial class MainWindow : Window
         FontRegistry.FontsChanged += OnFontsChanged;
         FontRegistry.PreparationProgress += OnFontProgress;
         FontRegistry.StartBackgroundPreparation();
+
+        // Files named on the command line, or dragged onto the .exe.
+        _ = OpenCommandLineFilesAsync();
     }
 
     private void OnFontsChanged(object? sender, EventArgs e)
@@ -506,6 +514,14 @@ public partial class MainWindow : Window
 
     private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        // Asked before anything is saved, so answering No leaves the window
+        // open with the document untouched.
+        if (!ConfirmDiscard())
+        {
+            e.Cancel = true;
+            return;
+        }
+
         // The window's own geometry and the view settings are saved here; the
         // App saves the file on exit (Section 6.2).
         var restoreBounds = WindowState == WindowState.Normal

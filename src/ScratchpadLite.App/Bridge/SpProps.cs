@@ -121,6 +121,49 @@ internal static class SpProps
     public static PreservedFormatting? GetPreserved(DependencyObject element) =>
         (PreservedFormatting?)element.GetValue(PreservedProperty);
 
+    // ---- The bridge's own markers (Section 6.4) ----
+
+    /// <summary>
+    /// The style name a horizontal rule carries, so the walker recognises one.
+    /// </summary>
+    /// <remarks>
+    /// A rule is a <c>BlockUIContainer</c> holding a Separator, and WPF has no
+    /// way to say what a BlockUIContainer is <em>for</em>. The double
+    /// underscore keeps it out of the style picker, which lists the sheet's own
+    /// names.
+    /// </remarks>
+    public const string HorizontalRuleStyleName = "__hr";
+
+    /// <summary>
+    /// A hyperlink's target as the file gave it.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Hyperlink.NavigateUri"/> would nearly do, but it is a
+    /// <see cref="Uri"/>, and a file can carry a target that <c>Uri</c> will
+    /// not parse. Keeping the original string means a save writes back what was
+    /// read rather than dropping it.
+    /// </remarks>
+    public static readonly DependencyProperty LinkProperty =
+        DependencyProperty.RegisterAttached(
+            "Link", typeof(string), typeof(SpProps),
+            new FrameworkPropertyMetadata(default(string), FrameworkPropertyMetadataOptions.Inherits));
+
+    public static void SetLink(DependencyObject element, string? value) =>
+        element.SetValue(LinkProperty, value);
+
+    public static string? GetLink(DependencyObject element) =>
+        (string?)element.GetValue(LinkProperty);
+
+    /// <summary>
+    /// An image's original bytes, carried on the <c>Image.Tag</c> so a save
+    /// writes them back untouched (Section 6.4).
+    /// </summary>
+    /// <remarks>
+    /// Re-encoding on every save would degrade a picture a little at a time. A
+    /// PNG screenshot saved five times should be the same PNG.
+    /// </remarks>
+    internal sealed record ImagePayload(byte[] Data, string Mime, string Alt);
+
     // ------------------------------------------------- applying to a range --
 
     /// <summary>
