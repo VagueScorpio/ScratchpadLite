@@ -11,65 +11,102 @@ using ScratchpadLite.Core.Platform;
 namespace ScratchpadLite.App.UI;
 
 /// <summary>
-/// Opening and saving, from the window's side (Sections 4.4 and 7.1).
+/// Opening and saving, from the window's side (Sections 4.4, 6.12 and 7.1).
 /// </summary>
 /// <remarks>
 /// Kept in its own file because MainWindow is wiring, and this is the one part
 /// of it with a flow of its own: dialog, background read, build, warn - and
 /// the reverse for a save, with the lossy-format check in the middle.
 /// <para>
-/// Phase 7 moves this to the tab manager, which will do the same thing once
-/// per tab.
+/// Every one of these works on one <see cref="DocumentSession"/>, which since
+/// Phase 7 is one tab of several rather than the only document there is.
 /// </para>
 /// </remarks>
 public partial class MainWindow
 {
-    private readonly DocumentSession _session = new();
+    /// <summary>The tab being worked on. There is always at least one.</summary>
+    private DocumentSession Session => _tabs.Active!;
 
     /// <summary>Set while a file is being read or written, so two cannot overlap.</summary>
     private bool _busy;
 
     /// <summary>
-    /// Opens the files named on the command line (Section 4.3).
+    /// Opens the files named on the command line (Section 4.3), and otherwise
+    /// the files that were open when the app was last closed (Section 6.12).
     /// </summary>
     /// <remarks>
-    /// Only the first is opened until tabs arrive in Phase 7, and the rest are
-    /// named rather than silently ignored.
+    /// Only the first file is read. The rest become tabs that carry their
+    /// names and read themselves when they are first clicked, which is what
+    /// Section 2.1 asks for and also what makes dropping twenty files onto the
+    /// .exe reasonable.
     /// </remarks>
-    private async Task OpenCommandLineFilesAsync()
+    private async Task OpenStartupFilesAsync()
     {
-        if (_options.Files.Count == 0)
+        var files = _options.Files.Count > 0
+            ? _options.Files.ToList()
+            : _settings.RestoreLastSession
+                ? SessionFiles.Load().Where(File.Exists).ToList()
+                : [];
+
+        if (files.Count == 0)
         {
             return;
         }
 
-        await OpenAsync(_options.Files[0]).ConfigureAwait(true);
+        // Tabs for all of them first, so the strip is complete before the read
+        // of the first one begins.
+        var tabs = files.Select(path => _tabs.Add(path)).ToList();
 
-        if (_options.Files.Count > 1)
+        // The one tab that was there at startup is empty and untitled, and
+        // keeping it would mean every launch with a file opened an "Untitled 1"
+        // nobody asked for.
+        if (_tabs.Tabs.Count > files.Count && IsReusable(_tabs.Tabs[0]))
         {
-            Status.ShowMessage(
-                $"Only {Path.GetFileName(_options.Files[0])} was opened; tabs arrive in a later version.",
-                transient: false);
+            _tabs.Remove(_tabs.Tabs[0]);
         }
+
+        _tabs.Activate(tabs[0]);
+
+        await LoadPendingAsync(tabs[0]).ConfigureAwait(true);
     }
 
-    private void NewDocument()
+    /// <summary>
+    /// Reads the file a tab stands for, the first time that tab is shown
+    /// (Section 6.12).
+    /// </summary>
+    private async Task LoadPendingAsync(DocumentSession session)
     {
-        if (!ConfirmDiscard())
+        if (session.PendingPath is not { } path)
         {
             return;
         }
 
-        Editor.Editor.Document = DocumentIo.ToFlowDocument(SpDocument.Empty, _styles);
-        Editor.ApplyDefaults(_settings, _styles);
+        // Cleared first: a read that fails must not leave the tab trying again
+        // every time it is clicked.
+        session.PendingPath = null;
 
-        Reset(new DocumentSession());
+        await ReadIntoAsync(session, path).ConfigureAwait(true);
+    }
+
+    /// <summary>A new, empty document in a new tab (Section 6.12).</summary>
+    private void NewDocument()
+    {
+        var session = _tabs.Add();
+
+        _tabs.Activate(session);
+
+        var view = session.View!;
+
+        view.Editor.Document = DocumentIo.ToFlowDocument(SpDocument.Empty, _styles);
+        view.ApplyDefaults(_settings, _styles);
+
+        AfterDocumentChanged(session);
         Status.ShowMessage("New document.");
     }
 
     private async Task OpenWithDialogAsync()
     {
-        if (_busy || !ConfirmDiscard())
+        if (_busy)
         {
             return;
         }
@@ -82,24 +119,57 @@ public partial class MainWindow
             // to show the dialog (Section 2.1).
             Filter = FormatRegistry.OpenFilter(),
             CheckFileExists = true,
+            Multiselect = true,
         };
 
-        if (_session.FilePath is { } current)
+        if (Session.FilePath is { } current)
         {
             dialog.InitialDirectory = Path.GetDirectoryName(current);
         }
 
-        if (dialog.ShowDialog(this) == true)
+        if (dialog.ShowDialog(this) != true)
         {
-            await OpenAsync(dialog.FileName).ConfigureAwait(true);
+            return;
+        }
+
+        foreach (var path in dialog.FileNames)
+        {
+            await OpenAsync(path).ConfigureAwait(true);
         }
     }
 
     /// <summary>
-    /// Opens one file: read in the background, build on the UI thread
+    /// Opens one file in a tab: read in the background, build on the UI thread
     /// (Section 4.4).
     /// </summary>
     internal async Task OpenAsync(string path)
+    {
+        if (_busy)
+        {
+            return;
+        }
+
+        // Section 6.12: the same file twice is one tab, switched to.
+        if (_tabs.ForPath(path) is { } already)
+        {
+            _tabs.Activate(already);
+            await LoadPendingAsync(already).ConfigureAwait(true);
+
+            Status.ShowMessage($"{Path.GetFileName(path)} is already open.");
+
+            return;
+        }
+
+        // An untouched Untitled tab is where the file goes, rather than beside
+        // it: otherwise every first Open leaves an empty tab behind.
+        var session = IsReusable(Session) ? Session : _tabs.Add();
+
+        _tabs.Activate(session);
+
+        await ReadIntoAsync(session, path).ConfigureAwait(true);
+    }
+
+    private async Task ReadIntoAsync(DocumentSession session, string path)
     {
         if (_busy)
         {
@@ -111,43 +181,48 @@ public partial class MainWindow
         try
         {
             Status.ShowMessage($"Opening {Path.GetFileName(path)}...", transient: false);
-            Mouse.OverrideCursor = System.Windows.Input.Cursors.AppStarting;
+            Mouse.OverrideCursor = Cursors.AppStarting;
 
             // The font index has to be loaded before the document is built, or
             // a font from the fonts/ folder resolves to the default and the
             // document opens looking wrong (Section 6.6).
             await FontRegistry.IndexReady.WaitAsync(TimeSpan.FromSeconds(10)).ConfigureAwait(true);
 
+            var view = _tabs.ViewFor(session);
+
             // RTF is the exception (Section 7.2): WPF's converter only speaks
             // FlowDocument, so it is read here on the UI thread rather than in
             // the background, and the IR comes from walking the result.
             var opened = IsRtf(path)
-                ? ReadRtf(path)
+                ? ReadRtf(view, path)
                 : await DocumentIo.ReadAsync(path, _styles, CancellationToken.None).ConfigureAwait(true);
 
-            var session = new DocumentSession
-            {
-                FilePath = path,
-                Meta = opened.Document.Meta,
-                Page = opened.Document.Page,
-                OpenedStamp = opened.Stamp,
-                OpenWarnings = opened.Warnings,
-                FontsUsed = opened.Document.FontsUsed,
-                LastSavedIr = opened.Document,
-            };
+            session.FilePath = path;
+            session.PendingPath = null;
+            session.Meta = opened.Document.Meta;
+            session.Page = opened.Document.Page;
+            session.OpenedStamp = opened.Stamp;
+            session.OpenWarnings = opened.Warnings;
+            session.FontsUsed = opened.Document.FontsUsed;
+            session.LastSavedIr = opened.Document;
+            session.FormatName = FormatRegistry.InfoFor(Path.GetExtension(path))?.Name ?? "TXT";
 
             // RTF has already put its own FlowDocument in the editor, and
             // rebuilding it from the walked IR would throw away whatever WPF's
             // converter kept that the IR has no room for.
             if (!IsRtf(path))
             {
-                Editor.Editor.Document = DocumentIo.ToFlowDocument(opened.Document, _styles);
+                view.Editor.Document = DocumentIo.ToFlowDocument(opened.Document, _styles);
             }
 
-            Reset(session);
+            AfterDocumentChanged(session);
 
-            ShowOpenWarnings(opened.Warnings);
-            ShowMissingFonts(opened.Document.FontsUsed);
+            if (ReferenceEquals(session, _tabs.Active))
+            {
+                ShowOpenWarnings(opened.Warnings);
+                ShowMissingFonts(opened.Document.FontsUsed);
+            }
+
             RecentFiles.Add(path);
 
             Status.ShowMessage($"Opened {Path.GetFileName(path)}.");
@@ -177,26 +252,27 @@ public partial class MainWindow
     /// Saves: walk on the UI thread, warn if the format would lose something,
     /// write in the background (Section 4.4).
     /// </summary>
-    private async Task SaveAsync(bool saveAs)
+    private async Task<bool> SaveAsync(DocumentSession session, bool saveAs)
     {
         if (_busy)
         {
-            return;
+            return false;
         }
 
-        var path = _session.FilePath;
+        var view = _tabs.ViewFor(session);
+        var path = session.FilePath;
 
         if (saveAs || path is null)
         {
-            path = AskWhereToSave(path);
+            path = AskWhereToSave(session, path);
 
             if (path is null)
             {
-                return;
+                return false;
             }
         }
 
-        var document = DocumentIo.ToIr(Editor.Editor.Document, _session, _styles);
+        var document = DocumentIo.ToIr(view.Editor.Document, session, _styles);
 
         // The lossy-format check (Section 7.1), on what this document actually
         // uses rather than on the format in general.
@@ -204,14 +280,14 @@ public partial class MainWindow
 
         if (decided is null)
         {
-            return;
+            return false;
         }
 
         path = decided;
 
-        if (!ConfirmOverwriteIfChangedOnDisk(path))
+        if (!ConfirmOverwriteIfChangedOnDisk(session, path))
         {
-            return;
+            return false;
         }
 
         _busy = true;
@@ -222,7 +298,7 @@ public partial class MainWindow
 
             if (IsRtf(path))
             {
-                WriteRtf(path);
+                WriteRtf(view, path);
             }
             else
             {
@@ -231,15 +307,24 @@ public partial class MainWindow
                     .ConfigureAwait(true);
             }
 
-            _session.FilePath = path;
-            _session.LastSavedIr = document;
-            _session.OpenedStamp = FileOps.Stamp.Of(path);
-            _session.IsDirty = false;
+            session.FilePath = path;
+            session.LastSavedIr = document;
+            session.OpenedStamp = FileOps.Stamp.Of(path);
+            session.IsDirty = false;
+            session.FormatName = FormatRegistry.InfoFor(Path.GetExtension(path))?.Name ?? "TXT";
 
             UpdateTitle();
+            RefreshTabStrip();
             RecentFiles.Add(path);
 
+            if (ReferenceEquals(session, _tabs.Active))
+            {
+                Status.ShowFormat(session.FormatName);
+            }
+
             Status.ShowMessage($"Saved {Path.GetFileName(path)}.");
+
+            return true;
         }
         catch (FileOps.SaveException ex)
         {
@@ -259,6 +344,20 @@ public partial class MainWindow
         {
             _busy = false;
         }
+
+        return false;
+    }
+
+    /// <summary>Every modified tab, one after another (Section 8.1).</summary>
+    private async Task SaveAllAsync()
+    {
+        foreach (var session in _tabs.Modified.ToList())
+        {
+            if (!await SaveAsync(session, saveAs: false).ConfigureAwait(true))
+            {
+                return;             // cancelled, so the rest are not asked about either
+            }
+        }
     }
 
     /// <summary>Whether this path is the one format handled on the FlowDocument.</summary>
@@ -276,7 +375,7 @@ public partial class MainWindow
     /// an honest cost of using the converter that already exists rather than
     /// writing one.
     /// </remarks>
-    private DocumentIo.Opened ReadRtf(string path)
+    private DocumentIo.Opened ReadRtf(Editor.EditorView view, string path)
     {
         var stamp = FileOps.Stamp.Of(path);
         var flow = new System.Windows.Documents.FlowDocument();
@@ -286,7 +385,7 @@ public partial class MainWindow
             new Formats.RtfFormat(_styles).Load(flow, stream);
         }
 
-        Editor.Editor.Document = flow;
+        view.Editor.Document = flow;
 
         // Walked for the save warning, the recovery file and the font list;
         // the editor already has the document itself.
@@ -298,17 +397,17 @@ public partial class MainWindow
             stamp);
     }
 
-    private void WriteRtf(string path)
+    private void WriteRtf(Editor.EditorView view, string path)
     {
         var rtf = new Formats.RtfFormat(_styles);
 
         FileOps.AtomicWrite(
             path,
-            stream => rtf.Save(Editor.Editor.Document, stream),
+            stream => rtf.Save(view.Editor.Document, stream),
             _settings.KeepBakFile);
     }
 
-    private string? AskWhereToSave(string? current)
+    private string? AskWhereToSave(DocumentSession session, string? current)
     {
         var dialog = new SaveFileDialog
         {
@@ -316,7 +415,7 @@ public partial class MainWindow
             Filter = FormatRegistry.SaveFilter(),
             AddExtension = true,
             OverwritePrompt = true,
-            FileName = current is null ? _session.Title : Path.GetFileName(current),
+            FileName = current is null ? session.Title : Path.GetFileName(current),
         };
 
         if (current is { } path)
@@ -404,14 +503,14 @@ public partial class MainWindow
     /// Asks before overwriting a file something else has changed since it was
     /// opened (Section 6.14).
     /// </summary>
-    private bool ConfirmOverwriteIfChangedOnDisk(string path)
+    private bool ConfirmOverwriteIfChangedOnDisk(DocumentSession session, string path)
     {
-        if (!string.Equals(path, _session.FilePath, StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(path, session.FilePath, StringComparison.OrdinalIgnoreCase))
         {
             return true;        // a different file; the dialog already asked
         }
 
-        if (!FileOps.ChangedOnDisk(path, _session.OpenedStamp))
+        if (!FileOps.ChangedOnDisk(path, session.OpenedStamp))
         {
             return true;
         }
@@ -427,61 +526,113 @@ public partial class MainWindow
         return answer == MessageBoxResult.Yes;
     }
 
+    // ----------------------------------------------------------------- tabs --
+
     /// <summary>
-    /// Asks about unsaved changes before they would be lost.
+    /// Whether a tab can be used for a file being opened: never saved, never
+    /// typed in, and empty (Section 6.12).
     /// </summary>
-    private bool ConfirmDiscard()
+    private static bool IsReusable(DocumentSession? session) =>
+        session is { FilePath: null, IsDirty: false, PendingPath: null }
+        && (session.View is null || IsEmpty(session.View.Editor.Document));
+
+    private static bool IsEmpty(System.Windows.Documents.FlowDocument document) =>
+        new System.Windows.Documents.TextRange(document.ContentStart, document.ContentEnd)
+            .Text.Trim().Length == 0;
+
+    /// <summary>
+    /// Closes a tab, asking about unsaved changes first (Section 6.12). The
+    /// last tab closed leaves a new empty one, because a window with no
+    /// document in it has nothing to type into.
+    /// </summary>
+    private async Task CloseTabAsync(DocumentSession session)
     {
-        if (!_session.IsDirty)
+        switch (AskAboutOneTab(session))
         {
-            return true;
+            case MessageBoxResult.Cancel:
+                return;
+
+            case MessageBoxResult.Yes when !await SaveAsync(session, saveAs: false).ConfigureAwait(true):
+                return;         // the save was cancelled, so the close is too
         }
 
-        var answer = MessageBox.Show(
-            this,
-            $"{_session.Title} has changes you have not saved.\n\nDiscard them?",
-            "Scratchpad Lite",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning);
+        var remaining = _tabs.Remove(session);
 
-        return answer == MessageBoxResult.Yes;
+        if (remaining is null)
+        {
+            NewDocument();
+        }
     }
 
-    private void Reset(DocumentSession session)
+    /// <summary>
+    /// Save / Don't Save / Cancel for one tab (Section 6.12).
+    /// </summary>
+    private MessageBoxResult AskAboutOneTab(DocumentSession session)
     {
-        _session.FilePath = session.FilePath;
-        _session.Meta = session.Meta;
-        _session.Page = session.Page;
-        _session.OpenedStamp = session.OpenedStamp;
-        _session.OpenWarnings = session.OpenWarnings;
-        _session.FontsUsed = session.FontsUsed;
-        _session.LastSavedIr = session.LastSavedIr;
-        _session.IsDirty = false;
+        if (!session.IsDirty)
+        {
+            return MessageBoxResult.No;
+        }
 
-        // The document just arrived, so the undo history belongs to a document
-        // that is no longer open.
-        Editor.Editor.Document.Blocks.FirstBlock?.ContentStart.Paragraph?.ToString();
-        Editor.Editor.IsUndoEnabled = false;
-        Editor.Editor.IsUndoEnabled = true;
+        return MessageBox.Show(
+            this,
+            $"Save changes to {session.Title}?",
+            "Scratchpad Lite",
+            MessageBoxButton.YesNoCancel,
+            MessageBoxImage.Warning);
+    }
 
-        UpdateTitle();
-        Editor.ReattachToNewDocument(_settings, _styles);
+    /// <summary>
+    /// Everything that has to happen after a tab's document has been replaced:
+    /// the undo history belongs to a document that is no longer open, and
+    /// everything attached to the old tree went with it.
+    /// </summary>
+    private void AfterDocumentChanged(DocumentSession session)
+    {
+        var view = _tabs.ViewFor(session);
 
-        Editor.Editor.Focus();
+        session.IsDirty = false;
+
+        view.Editor.IsUndoEnabled = false;
+        view.Editor.IsUndoEnabled = true;
+
+        view.ReattachToNewDocument(_settings, _styles);
+
+        if (_spellCheckStarted)
+        {
+            ApplySpellCheck(view);
+        }
+
+        if (ReferenceEquals(session, _tabs.Active))
+        {
+            UpdateTitle();
+            Status.ShowFormat(session.FormatName);
+            view.Editor.Focus();
+        }
+
+        RefreshTabStrip();
     }
 
     private void UpdateTitle() =>
-        Title = $"{(_session.IsDirty ? "*" : "")}{_session.Title} — Scratchpad Lite";
+        Title = $"{(Session.IsDirty ? "*" : "")}{Session.Title} — Scratchpad Lite";
 
-    private void OnDocumentChanged()
+    private void RefreshTabStrip() => Tabs.Show(_tabs.Tabs, _tabs.Active);
+
+    private void OnDocumentEdited(DocumentSession session)
     {
-        if (_session.IsDirty)
+        if (session.IsDirty)
         {
             return;
         }
 
-        _session.IsDirty = true;
-        UpdateTitle();
+        session.IsDirty = true;
+
+        if (ReferenceEquals(session, _tabs.Active))
+        {
+            UpdateTitle();
+        }
+
+        RefreshTabStrip();
     }
 
     private void ShowOpenWarnings(IReadOnlyList<string> warnings)

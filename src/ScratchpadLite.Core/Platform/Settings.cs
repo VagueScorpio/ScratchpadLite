@@ -37,6 +37,21 @@ public sealed record Settings
     public bool SpellCheckEnabled { get; init; } = true;
     public string SpellCheckLanguage { get; init; } = "en-US";
 
+    /// <summary>
+    /// Leave spell check off on a document longer than this many characters.
+    /// Zero, the default, means no limit.
+    /// </summary>
+    /// <remarks>
+    /// Section 6.11 asked for this switch in case checking a 300-page document
+    /// made typing lag. It was measured in Phase 7 and it does not: at 300
+    /// pages a keystroke settles in 18.7 ms with spell check on and 18.9 ms
+    /// with it off. What is slow at that size is WPF's rich text control
+    /// itself, and switching spell check off would cost a feature and fix
+    /// nothing. So the switch is here for anyone who wants it, and the default
+    /// leaves spell check on at every size.
+    /// </remarks>
+    public int SpellCheckMaxCharacters { get; init; }
+
     // Crash recovery (always on) and AutoSave (opt-in) - Section 6.13
     public int RecoveryIntervalSeconds { get; init; } = 30;
     public bool AutoSaveEnabled { get; init; }

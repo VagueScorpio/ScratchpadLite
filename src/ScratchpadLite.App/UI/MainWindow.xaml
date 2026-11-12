@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="clr-namespace:ScratchpadLite.App.UI"
-        xmlns:editor="clr-namespace:ScratchpadLite.App.Editor"
+        xmlns:dialogs="clr-namespace:ScratchpadLite.App.UI.Dialogs"
         Title="Untitled 1 — Scratchpad Lite"
         Height="700"
         Width="1040"
@@ -26,10 +26,10 @@
                 <Separator />
                 <MenuItem Header="Save" Command="{x:Static ui:Commands.Save}" />
                 <MenuItem Header="Save As..." Command="{x:Static ui:Commands.SaveAs}" />
-                <MenuItem Header="Save All" Command="{x:Static ui:Commands.SaveAll}" IsEnabled="False" />
+                <MenuItem Header="Save All" Command="{x:Static ui:Commands.SaveAll}" />
                 <MenuItem x:Name="AutoSaveMenuItem" Header="AutoSave" IsCheckable="True" IsEnabled="False" />
                 <Separator />
-                <MenuItem Header="Close Tab" Command="{x:Static ui:Commands.CloseTab}" IsEnabled="False" />
+                <MenuItem Header="Close Tab" Command="{x:Static ui:Commands.CloseTab}" InputGestureText="Ctrl+W" />
                 <MenuItem Header="Page Setup..." Command="{x:Static ui:Commands.PageSetup}" IsEnabled="False" />
                 <MenuItem Header="Print..." Command="{x:Static ui:Commands.Print}" IsEnabled="False" />
                 <MenuItem Header="Export as PDF..." Command="{x:Static ui:Commands.ExportPdf}" IsEnabled="False" />
@@ -48,10 +48,10 @@
                 <MenuItem Header="Paste as Plain Text" Command="{x:Static ui:Commands.PastePlainText}" />
                 <MenuItem Header="Select All" Command="SelectAll" />
                 <Separator />
-                <MenuItem Header="Find..." IsEnabled="False" />
-                <MenuItem Header="Replace..." IsEnabled="False" />
-                <MenuItem Header="Find Next" IsEnabled="False" />
-                <MenuItem Header="Find Previous" IsEnabled="False" />
+                <MenuItem Header="Find..." Command="{x:Static ui:Commands.Find}" InputGestureText="Ctrl+F" />
+                <MenuItem Header="Replace..." Command="{x:Static ui:Commands.Replace}" InputGestureText="Ctrl+H" />
+                <MenuItem Header="Find Next" Command="{x:Static ui:Commands.FindNext}" InputGestureText="F3" />
+                <MenuItem Header="Find Previous" Command="{x:Static ui:Commands.FindPrevious}" InputGestureText="Shift+F3" />
             </MenuItem>
 
             <MenuItem Header="F_ormat">
@@ -139,9 +139,14 @@
             </MenuItem>
 
             <MenuItem Header="T_ools">
-                <MenuItem x:Name="SpellCheckMenuItem" Header="Spell Check" IsCheckable="True" IsEnabled="False" InputGestureText="F7" />
-                <MenuItem Header="Language" IsEnabled="False" />
-                <MenuItem Header="Edit User Dictionary..." IsEnabled="False" />
+                <MenuItem x:Name="SpellCheckMenuItem" Header="Spell Check" IsCheckable="True"
+                          Command="{x:Static ui:Commands.ToggleSpellCheck}" InputGestureText="F7" />
+
+                <!-- Filled when it is opened, from the languages Windows says
+                     its spell checker has (Section 6.11). -->
+                <MenuItem x:Name="LanguageMenu" Header="Language" SubmenuOpened="OnLanguageMenuOpened" />
+
+                <MenuItem Header="Edit User Dictionary..." Command="{x:Static ui:Commands.EditUserDictionary}" />
                 <MenuItem Header="Word Count..." Command="{x:Static ui:Commands.WordCount}" />
                 <Separator />
                 <MenuItem Header="Font Report..." Command="{x:Static ui:Commands.FontReport}" />
@@ -198,6 +203,14 @@
         </Menu>
 
         <ui:Toolbars x:Name="FormatToolbars" DockPanel.Dock="Top" />
+
+        <!-- Section 6.10 puts find and replace under the toolbar, not in a
+             window of its own, so the match stays visible where it is. -->
+        <dialogs:FindReplaceBar x:Name="FindBar" DockPanel.Dock="Top" Visibility="Collapsed" />
+
+        <!-- Section 6.12. Headers only: the editors themselves are kept alive
+             in EditorHost below and switched by Visibility. -->
+        <ui:TabStrip x:Name="Tabs" DockPanel.Dock="Top" />
 
         <ui:StatusBar x:Name="Status" DockPanel.Dock="Bottom" />
 
@@ -256,7 +269,11 @@
             </DockPanel>
         </Border>
 
-        <!-- Phase 7 replaces this single editor with the tab control. -->
-        <editor:EditorView x:Name="Editor" />
+        <!-- One EditorView per open document, all of them alive, only the
+             active one visible (Section 6.12). A TabControl would rebuild the
+             content of a tab on every switch and throw away the RichTextBox's
+             undo history, so the tab strip above holds nothing but headers and
+             the editors live here. -->
+        <Grid x:Name="EditorHost" />
     </DockPanel>
 </Window>

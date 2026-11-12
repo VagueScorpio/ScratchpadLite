@@ -24,7 +24,7 @@ namespace ScratchpadLite.App.Editor;
 /// <see cref="DispatcherPriority.Background"/> throttled to one per 50 ms, and
 /// the word count waits for a 300 ms pause in typing. And spell check is not
 /// switched on in the constructor: it loads the Windows spell checker, so
-/// <see cref="EnableSpellCheck"/> is called after the first frame (Phase 7).
+/// <see cref="SpellSupport.Enable"/> is called after the first frame.
 /// </remarks>
 public partial class EditorView : UserControl
 {
@@ -166,19 +166,6 @@ public partial class EditorView : UserControl
 
         ApplyPageView();
         OnWordCountTick(this, EventArgs.Empty);
-    }
-
-    /// <summary>
-    /// Switches on the spell checker. Called after the first frame, never in the
-    /// constructor: turning it on loads the Windows spell checker (Section 2.1).
-    /// </summary>
-    internal void EnableSpellCheck(bool enabled, string language)
-    {
-        EditorBox.SpellCheck.IsEnabled = enabled;
-        if (enabled)
-        {
-            EditorBox.Language = System.Windows.Markup.XmlLanguage.GetLanguage(language);
-        }
     }
 
     /// <summary>

@@ -52,6 +52,8 @@ public class StartupTimerTests
 /// Phase 7
 /// <list type="bullet">
 ///   <item>FindEngineTests: match case, whole word, a match that crosses runs, and Replace All as one undo step.</item>
+///   <item>TabTests: undo survives a tab switch (the one Section 6.12 names), lazy editor creation, closing, reordering, cycling, and the tab strip.</item>
+///   <item>SpellCheckTests: the custom dictionary file, the installed languages, Code paragraphs excluded, and the size limit.</item>
 /// </list>
 ///
 /// Phase 8

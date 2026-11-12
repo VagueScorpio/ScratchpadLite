@@ -28,6 +28,13 @@ namespace ScratchpadLite.Core.Tests;
 ///   <item>EditedContentRoundTripTests: everything the editing commands build, written and read back in every format that claims to carry it. This is the phase gate.</item>
 /// </list>
 ///
+/// Phase 7 - tabs, find and replace, spell check
+/// <list type="bullet">
+///   <item>FindEngineTests: match case, whole word, regular expressions, a match that crosses runs, matches that stop at a paragraph, a line break and a picture, replace keeping the first character's formatting, Replace All as one undo step.</item>
+///   <item>TabTests: a tab builds no editor until it is shown, only the active editor is visible, undo survives a tab switch, closing a tab picks the right neighbour, reordering, the same file finds its own tab, Ctrl+Tab wraps round, and the strip's names, dots and tooltips.</item>
+///   <item>SpellCheckTests: the .lex file's header and encoding, adding words, the languages Windows reports, Code paragraphs marked as having no linguistic content, and the size above which checking is left off.</item>
+/// </list>
+///
 /// Phase 2 - fonts
 /// <list type="bullet">
 ///   <item>FontScannerTests: every type is sorted correctly by magic bytes even when the extension lies; oversize files are skipped.</item>

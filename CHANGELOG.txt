@@ -8,6 +8,7 @@ underneath. Old entries are never removed.
 Contents
 --------
 
+  v1.7  2026-11-11  Phase 7: tabs, find and replace, spell check
   v1.6  2026-11-11  Phase 6: lists, tables, images, links
   v1.5  2026-11-11  Phase 5: Markdown, ODT and RTF
   v1.4  2026-11-09  Phase 4: the IR, the bridge, TXT and DOCX
@@ -16,6 +17,213 @@ Contents
   v1.1  2026-11-08  Phase 1: editor core
   v1.0  2026-11-08  Phase 0: skeleton and pipeline
 
+
+--------------------------------------------------------------------------------
+v1.7  -  2026-11-11  -  Phase 7: tabs, find and replace, spell check
+--------------------------------------------------------------------------------
+
+What
+----
+
+Sections 6.10, 6.11 and 6.12. All three were stubs that threw; this fills them
+in, and the window stops being a window with one document in it.
+
+  * Tabs (TabManager, TabStrip, DocumentSession): several documents at once.
+    New, open, close with a save prompt, middle-click to close, drag to
+    reorder, Ctrl+Tab and Ctrl+Shift+Tab, a dot on a tab with unsaved changes,
+    the full path as its tooltip. Opening a file that is already open switches
+    to its tab. Closing the window asks about every modified document in one
+    list rather than one prompt per tab.
+  * Lazy tabs (Section 2.1): a restored session, or twenty files dropped on the
+    .exe, makes a tab for each and reads only the first. The rest carry their
+    names and read themselves when first clicked.
+  * Reopen last session (SessionFiles): the files that were open at a clean
+    exit come back, which is the setting that was already in settings.json with
+    nothing behind it.
+  * Find and replace (FindEngine, FindReplaceBar): a bar under the toolbar,
+    Ctrl+F and Ctrl+H, "3 of 17", F3 and Shift+F3, match case, whole word,
+    regular expressions with a two-second cap, and a search that carries on
+    into the other open tabs. Replace keeps the formatting of the first
+    character of what it replaced. Replace All is one undo step.
+  * Spell check (SpellSupport): the Windows checker, switched on after the
+    first frame. Suggestions, Ignore All and Add to Dictionary in the
+    right-click menu; the custom dictionary as data/user-dictionary.lex; the
+    language menu built from what Windows says it can check; Code paragraphs
+    marked as not prose; and the checker left off above a size that was
+    measured rather than guessed.
+  * One dialog built for real: UnsavedChanges.
+  * Save All, Close Tab, Find, Replace, Find Next, Find Previous, Spell Check,
+    Language and Edit User Dictionary are no longer greyed-out menu items.
+  * 726 tests passing (370 in Core, 356 in App), up from 651.
+
+Measured on this PC, publishing the release build:
+
+    warm startup   687 ms median of runs 2-5 (692, 676, 685, 687)
+    budget         1000 ms warm. Cold is not measured here - it needs a
+                   reboot - and was 2.0 s budgeted.
+    idle memory    157.9 MB working set, 84.9 MB private
+    .exe           169.6 MB, up 0.2 MB from v1.6
+    zip            68.0 MB
+
+Idle working set is up about 9 MB from v1.6's 148.6 MB. That is the Windows
+spell checker, which is loaded the moment spell check goes on - after the first
+frame, so it costs the startup time nothing, but it is resident afterwards.
+Private bytes did not move at all (85.5 MB then, 84.9 MB now), which says the
+9 MB is shared pages of a Windows component rather than this app allocating
+anything.
+
+Why
+---
+
+Section 6.12 says not to put the editors in a TabControl, and it is right for a
+reason worth writing down. A TabControl keeps one content presenter and
+re-creates the content of a tab every time you switch to it. For a RichTextBox
+that means a new control each time, and a new control has an empty undo
+history and a scroll position at the top. Switching tabs would quietly cost the
+user their undo - in the built application only, because nothing about it looks
+wrong until you press Ctrl+Z.
+
+So every editor is made once and kept alive in one Grid, and switching tabs
+changes which one is visible. The strip above holds nothing but headers.
+TabTests.UndoSurvivesATabSwitch is the test that proves it, and it asserts both
+that the RichTextBox is the same object afterwards and that Undo still works.
+
+The second decision is how little of the window had to change. Every command
+was bound to "the editor" once, in the constructor, through a local variable.
+That variable is now a property, Editor, which returns whichever tab is
+showing - so a command reaches the active document because the property is read
+when the command runs rather than when it was bound. Had it stayed a local, all
+of Phase 1 through Phase 6 would have gone on formatting the first tab for ever,
+invisibly.
+
+Find has no WPF support at all, and the shape of the engine is the interesting
+part. A RichTextBox holds a tree, not a string: the word "formatting" with its
+middle emboldened is three Runs, and a search that looked at one Run at a time
+would never find it. So the document is flattened first into units - one per
+paragraph, list item or table cell - each carrying the plain text plus a list of
+segments recording which TextPointer each stretch of that text came from. The
+search runs on the string, and every hit is mapped back to a real TextRange.
+
+A match never crosses a paragraph, a line break, a table cell or a picture. That
+is deliberate and not a shortcut: a TextRange spanning two paragraphs cannot be
+given replacement text without destroying the break between them, so a match
+there would be a match that could not be replaced.
+
+Spell check had one question the blueprint asked to have answered rather than
+assumed: which languages to offer. There is no managed API. WPF sets the
+language on the control and the Windows checker either has a dictionary for it
+or quietly has none, so a hand-written list would offer languages that do
+nothing. The answer is to ask the component WPF itself talks to -
+ISpellCheckerFactory, through about thirty lines of COM declaration - and fall
+back to the five languages WPF shipped with if that fails. Tags without a
+region are dropped, because Windows lists both "en" and "en-US" and only the
+second is something WPF can be given.
+
+Section 6.11 also asked which tag WPF honours for "this is not prose", zxx or
+x-none. Both: WPF passes the tag to the Windows checker, which has a dictionary
+for neither. zxx is the registered ISO 639-2 code for no linguistic content, so
+that is the one used on Code paragraphs.
+
+The performance check Section 6.11 asked for, and what it found
+---------------------------------------------------------------
+
+"Open a 300-page document with spell check on. If typing lags, add a setting
+that turns spell check off automatically above a size limit, and tell me."
+
+Typing does lag at that size. Spell check is not why. Each line is the time for
+one keystroke to settle, measured ten times per case on this PC:
+
+    pages   characters   spell off   spell on
+       20       57,150      2.5 ms     1.6 ms
+      100      286,695      5.7 ms     4.9 ms
+      300      860,321     18.9 ms    18.7 ms
+      600    1,721,898     90.2 ms    82.8 ms
+
+Switching spell check on cost between 3 and 62 ms once, and nothing per
+keystroke. The spell-on column is, if anything, slightly faster than spell-off,
+which means the difference is below the noise. What is expensive at 300 and 600
+pages is WPF's rich text control laying the document out, which is the
+known limitation already in the user guide.
+
+So the automatic limit was built but is switched off by default. Settings has
+spellCheckMaxCharacters, zero meaning no limit, and SpellSupport.Enable honours
+it - the switch Section 6.11 asked for is there for anyone who wants it. What is
+not there is this app deciding on its own to take the squiggles away from a long
+document on a premise the measurement does not support. A test asserts the
+default is zero, so a future tidy-up cannot quietly turn it on.
+
+How
+---
+
+Five bugs and two findings came out of the new tests.
+
+  * Every single replace threw. TextRange.GetPropertyValue and
+    ApplyPropertyValue check what they are given against a fixed list of what
+    WPF calls text formatting and throw ArgumentException - "'Underline'
+    property is not valid for text formatting" - for anything else. This app's
+    underline kind and super/subscript are attached properties of its own
+    (Section 6.8), so they cannot go through those methods at all. The ten
+    properties WPF accepts go through the TextRange; the three of ours are read
+    off the element at the match start and set on the inlines of the
+    replacement. A probe run checked all thirteen rather than guessing which
+    were allowed.
+  * A RichTextBox has no undo history until it is loaded. Not until it is
+    created, not until it is visible: loaded, which WPF raises from the
+    dispatcher queue. A control added to a window after that window was shown
+    accepts text, reports IsUndoEnabled true, and then has CanUndo false for
+    ever. The first version of the tab-switch undo test therefore typed,
+    switched, undid, and found the text still there - which looks exactly like
+    the TabControl bug it was written to rule out, and was not. AppHost.Settle
+    now lets WPF finish loading, and says why in a comment.
+  * Replace All replaced forwards, so with a replacement longer than the match
+    every one after the first landed in the wrong place. It now works from the
+    end of the document backwards, where no range is touched before it is used.
+    The test that catches it replaces "x" with "yyyyy" four times.
+  * A regular expression that matches nothing at all - "b*" - matched at every
+    position in the text, so Replace All would have inserted the replacement
+    between every pair of characters. Zero-length matches are now dropped.
+  * The user dictionary could not be written: the StreamWriter closed the
+    stream that FileOps.AtomicWrite still had to flush and rename, so every
+    write ended in "Cannot access a closed file". leaveOpen fixes it.
+  * Find Previous skipped a match that touched the current one. With "a"
+    searched for in "aaaa" the previous match ends exactly where the selected
+    one starts, and the comparison was strict, so Previous jumped past it and
+    wrapped round to the end of the document instead.
+
+And one about measuring, which cost an hour. Pumping the dispatcher at
+Background priority to let a shown window settle never returns: something at a
+higher priority - the caret's own blink is the obvious candidate - keeps the
+queue busy for ever, so a Background item is never reached. Two attempts at the
+performance measurement above hung there and were killed before it was clear
+they were not simply slow. Pumping at Loaded priority settles after layout and
+returns, which is what the measurement and AppHost.Settle both use.
+
+Two things found that are WPF being WPF rather than bugs here.
+
+  * TextRange.Text on a range that starts at the beginning of a list item's
+    paragraph reports the list marker in front of the text, so a match on the
+    first word of a bulleted item comes back as "*<tab>needle". The range is
+    right - replacing it leaves the bullet alone, which has its own test - and
+    only Text draws the marker in. Worth knowing before trusting Text in a
+    test.
+  * A table selection still cannot be read from Selection (the Phase 6
+    finding), and find and replace is unaffected by it, because the engine never
+    uses Selection to decide what a match is.
+
+Tabs and the status bar: the toolbars and the counts follow the active editor
+only. Every tab raises its own throttled readout, and a background tab finishing
+one would otherwise put another document's formatting in the toolbar. Both
+handlers check the sender first.
+
+Dark Paper and the page view apply to every open tab rather than only the one in
+front, because they are one setting for the application and a half-dark set of
+tabs would read as a bug.
+
+Exit with unsaved work cannot be done synchronously: Closing cannot be awaited,
+and a close that carried on while the writes were still in flight would be a
+close that lost them. So Save All on exit cancels the close, runs the saves, and
+closes the window itself when they are done - and leaves it open if one of them
+is cancelled.
 
 --------------------------------------------------------------------------------
 v1.6  -  2026-11-11  -  Phase 6: lists, tables, images, links

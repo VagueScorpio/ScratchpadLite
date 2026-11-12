@@ -10,8 +10,6 @@ namespace ScratchpadLite.App.Services;
 /// (Section 6.12). A tab owns exactly one of these.
 /// </summary>
 /// <remarks>
-/// Phase 7 gives each tab one of these. Until then the window has exactly one,
-/// which is the same thing with the collection left out.
 /// <para>
 /// The things kept here that are not in the FlowDocument are the point:
 /// metadata, page setup, and the file's state when it was opened. A
@@ -26,8 +24,44 @@ internal sealed class DocumentSession
 
     internal DocumentSession() => UntitledNumber = ++_untitledCount;
 
+    /// <summary>
+    /// Identifies this document for the whole of its life, including across a
+    /// crash: it is the name of its recovery file (Section 6.13.1).
+    /// </summary>
+    internal Guid Id { get; } = Guid.NewGuid();
+
     /// <summary>Where it came from, or null for a document never saved.</summary>
     internal string? FilePath { get; set; }
+
+    /// <summary>
+    /// The editor this tab's document lives in, or null while the tab has never
+    /// been shown.
+    /// </summary>
+    /// <remarks>
+    /// Section 2.1 and Section 6.12: a restored session makes one of these per
+    /// tab only as each tab is first clicked. A RichTextBox is not cheap, and a
+    /// window that built nine of them before its first frame would not start in
+    /// a second.
+    /// </remarks>
+    internal Editor.EditorView? View { get; set; }
+
+    /// <summary>
+    /// The file this tab stands for but has not read yet (Section 6.12). Null
+    /// once it is loaded, and for a tab that never had a file.
+    /// </summary>
+    internal string? PendingPath { get; set; }
+
+    /// <summary>
+    /// The format name for the status bar, from the handler the file was read
+    /// with (Section 6.18).
+    /// </summary>
+    internal string FormatName { get; set; } = "TXT";
+
+    /// <summary>When this document was last written to its recovery file (Section 6.13.1).</summary>
+    internal DateTime LastRecoveryWriteUtc { get; set; }
+
+    /// <summary>When AutoSave last saved this document (Section 6.13.2).</summary>
+    internal DateTime LastAutoSaveUtc { get; set; }
 
     /// <summary>Which "Untitled N" this is, for a document with no file.</summary>
     internal int UntitledNumber { get; }

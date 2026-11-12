@@ -85,6 +85,12 @@ Deliberately not used
   Aspose, Syncfusion, Telerik, DevExpress, Spire and similar: paid or
   license-key libraries, excluded by the project rules.
 
+  Nothing was added in Phase 7. Find and replace is this project's own code
+  over WPF's TextPointer API, and spell check is the Windows spell checker that
+  WPF already uses - the only new dependency is a thirty-line COM declaration
+  of ISpellCheckerFactory, which is part of Windows (spellcheck.dll, Windows 8
+  and later) and ships with nothing.
+
   WOFF, WOFF2, Type 1, .dfont, .eot and .t42 handling is hand-written, because
   no maintained free .NET library covers them. See the WOFF2 note above for
   what the implementation is based on.

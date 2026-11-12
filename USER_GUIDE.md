@@ -33,6 +33,7 @@ Everything the app writes goes in a `data/` folder next to the `.exe`:
 | `styles.json` | the paragraph styles, which you can edit |
 | `user-dictionary.lex` | words you added to the spell checker |
 | `recent-files.json` | the Open Recent list |
+| `session.json` | the files that were open last time, for Restore last session |
 | `font_cache/` | prepared copies of your fonts, and the font index |
 | `recovery/` | crash-recovery copies of open documents |
 | `logs/` | one rolling log per day, seven days kept |
@@ -291,28 +292,83 @@ skipped.
 
 ## Finding, spelling, counting
 
-> Word Count works now. Find, Replace and spell check arrive in Phase 7.
+**Find** (Ctrl+F) and **Replace** (Ctrl+H) open a bar under the toolbar rather
+than a dialog, so the document stays visible and you can see the match where it
+is. The bar counts as you go — "3 of 17" — and F3 and Shift+F3 step through.
+Press Enter in the Find box to go to the next match, Shift+Enter for the
+previous one, and Escape to put the caret back in the document.
 
-**Find** (Ctrl+F) and **Replace** (Ctrl+H) open a bar rather than a dialog, so
-the document stays visible. Match case, whole word and wrap-around are there,
-and Replace All counts as one undo.
+Four options:
 
-**Spell check** (F7) uses the Windows spell checker: red squiggles, suggestions
-in the right-click menu, and **Add to Dictionary** to keep a word. Your words go
-in `data/user-dictionary.lex` and survive restarts and upgrades.
+- **Match case** — "Cat" finds Cat and not cat.
+- **Whole word** — "cat" skips "cathedral" and "bobcat".
+- **Regular expression** — the .NET flavour. A pattern that will not compile
+  shows its error in the bar; one that takes more than two seconds is stopped
+  and says so, rather than hanging the window.
+- **All open tabs** — when the active document has no more matches, the search
+  moves on to the next tab. A tab that has not loaded its file yet is read
+  first, so it cannot report "no matches" in a document nobody has looked at.
+
+**Replace** swaps one match and finds the next. The replacement keeps the
+formatting of the first character of what it replaced, so replacing a word in
+the middle of a bold sentence leaves it bold. **Replace All** does the lot
+inside a single undo: one Ctrl+Z puts every one of them back.
+
+Matches never cross a paragraph, a line break, a table cell or a picture. That
+is not a shortcut — a selection spanning two paragraphs cannot be given
+replacement text without destroying the break between them, so a match there
+would be one that could not be replaced.
+
+**Spell check** (F7) uses the Windows spell checker: red squiggles, and
+right-clicking a flagged word offers up to six suggestions, **Ignore All** and
+**Add to Dictionary**. Your words go in `data/user-dictionary.lex` and survive
+restarts and upgrades; **Tools → Edit User Dictionary** opens that file, and
+Windows reloads it next time the app starts.
+
+**Tools → Language** lists the languages the Windows spell checker has on this
+PC — asked of Windows rather than guessed, so everything in the list works. More
+languages come from Windows Settings → Time & language → Language.
+
+Paragraphs in the **Code** style are not checked. Code is not prose, and a page
+of it underlined in red tells you nothing.
+
+Spell check stays on whatever the size of the document. That was measured
+rather than assumed: in a 300-page document a keystroke settles in 18.7 ms with
+spell check on and 18.9 ms with it off, so the Windows checker is not what
+makes a long document slow — WPF's rich text control is. There is a
+`spellCheckMaxCharacters` setting in `settings.json` that leaves spell check off
+above a size you choose, and it is zero (no limit) by default, because switching
+it off would cost you the squiggles and save you nothing.
 
 **Word Count** is in the Tools menu, and the running count sits in the status
 bar.
 
-## Tabs **(not yet — Phase 7)**
+## Tabs
 
 Several documents are open at once in tabs. Ctrl+N opens one, Ctrl+W closes one,
-Ctrl+Tab moves between them. Each tab keeps its own undo history, so switching
-away and back does not cost you your undo.
+Ctrl+Tab and Ctrl+Shift+Tab move between them. The **+** at the right of the
+strip opens a tab, middle-clicking a tab closes it, and dragging a tab sideways
+moves it.
 
-If **Restore last session** is on, the tabs you had come back. Only the one you
-were last using loads immediately; the others load the moment you click them,
-which is what keeps startup fast.
+A tab shows a dot when it has unsaved changes, and its tooltip is the full path
+— which is the only way to tell two files with the same name apart. Opening a
+file that is already open switches to its tab instead of opening a second copy
+of it, and the first file you open goes into the empty Untitled tab rather than
+beside it.
+
+Each tab keeps its own undo history, its own scroll position and its own
+document. Switching away and back costs you nothing, because the editor is kept
+alive rather than rebuilt.
+
+Closing a tab with unsaved changes asks Save / Don't Save / Cancel. Closing the
+window asks about every modified document in **one** list, not one prompt per
+tab.
+
+If **Restore last session** is on (it is by default), the files you had open
+come back. Only the one you were last using loads immediately; the others show
+their names and load the moment you click them, which is what keeps startup
+fast. The same goes for files dropped onto the .exe: all of them get a tab, the
+first one loads.
 
 ## View
 
@@ -357,7 +413,10 @@ Windows, so there is nothing extra to install.
 | Find next / previous | F3 / Shift+F3 |
 | Spell check on/off | F7 |
 | New tab / Open / Save / Save As | Ctrl+N / Ctrl+O / Ctrl+S / Ctrl+Shift+S |
-| Close tab / Next tab | Ctrl+W / Ctrl+Tab |
+| Close tab | Ctrl+W |
+| Next / previous tab | Ctrl+Tab / Ctrl+Shift+Tab |
+| Next / previous match, in the Find box | Enter / Shift+Enter |
+| Close the find bar | Escape |
 | Print | Ctrl+P |
 | Reset zoom | Ctrl+0 |
 
@@ -408,9 +467,17 @@ it took, and exits. It is there for the build script.
     works out what you really swept from the cells the mouse went between, so
     merging a column works — but selecting cells with the keyboard and merging
     them merges the whole block between them.
-12. **Not a page-layout program.** The editor shows one continuous page-width
+12. **Find and replace stops at a paragraph.** A match cannot span two
+    paragraphs, a line break, a table cell boundary or a picture, because a
+    replacement across one of those would destroy the break it crossed.
+13. **Replacing the text of a link removes the link.** Replace All over a word
+    that happens to be inside a hyperlink leaves the new word as plain text.
+    Use Ctrl+K to put the link back.
+14. **Not a page-layout program.** The editor shows one continuous page-width
     column; pages are only split for printing and PDF. Headers, footers, columns
     and footnotes are out of scope for version 1.
-13. **Very large documents** — hundreds of pages — get slower, because WPF's rich
-    text control is not built for book-length files.
-14. **The `.exe` is not signed,** so SmartScreen warns on first run.
+15. **Very large documents get slower,** because WPF's rich text control is not
+    built for book-length files. Measured: a keystroke settles in about 3 ms at
+    20 pages, 6 ms at 100, 19 ms at 300 and 90 ms at 600. Spell check is not
+    the cause — the same numbers come out with it off.
+16. **The `.exe` is not signed,** so SmartScreen warns on first run.

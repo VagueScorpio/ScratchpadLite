@@ -24,14 +24,18 @@ namespace ScratchpadLite.App.UI;
 /// editor's own behaviour in <see cref="EditorView"/>; what happens here is
 /// connecting them and keeping the settings file in step.
 /// <para>
-/// Phase 7 replaces the single editor with the tab control, at which point the
-/// per-document wiring moves to the tab manager.
+/// Since Phase 7 there is one <see cref="EditorView"/> per tab rather than one
+/// for the window, and <see cref="Editor"/> is whichever of them is showing.
+/// That is why almost nothing in this class had to change: a command bound to
+/// "the editor" now reaches the active one because the property is read when
+/// the command runs, not when it was bound.
 /// </para>
 /// </remarks>
 public partial class MainWindow : Window
 {
     private readonly CommandLineOptions _options;
     private readonly StyleSheet _styles;
+    private readonly TabManager _tabs;
 
     private Settings _settings;
 
@@ -48,20 +52,29 @@ public partial class MainWindow : Window
         _styles = StyleSheet.LoadOrDefault(AppPaths.StylesFile);
 
         RestorePlacement();
-        BindCommands();
-        RouteMenuCommandsToEditor();
-        BuildParagraphStyleMenu();
 
-        FormatToolbars.Target = Editor;
+        _tabs = new TabManager(EditorHost, () => new EditorView());
+        _tabs.ViewCreated += (_, session) => WireView(session);
+        _tabs.ActiveChanged += (_, session) => OnActiveTabChanged(session);
+        _tabs.TabsChanged += (_, _) => RefreshTabStrip();
+
+        Tabs.Chosen += (_, session) => ActivateTab(session);
+        Tabs.CloseRequested += (_, session) => _ = CloseTabAsync(session);
+        Tabs.NewTabRequested += (_, _) => NewDocument();
+        Tabs.Reordered += (_, move) => _tabs.Move(move.From, move.To);
+
+        WireFindBar();
+
         FormatToolbars.LoadStyles(_styles);
         FormatToolbars.PreviewFontNamesInOwnFont = _settings.PreviewFontNamesInOwnFont;
 
-        Editor.ApplyDefaults(_settings, _styles);
-        Editor.FormatStateChanged += OnFormatStateChanged;
-        Editor.CountsChanged += OnCountsChanged;
-        Editor.DocumentChanged += (_, _) => OnDocumentChanged();
+        BindCommands();
+        BuildParagraphStyleMenu();
 
-        PasteFilter.Attach(Editor.Editor);
+        // The first tab, and with it the first editor. Everything above is
+        // wiring that has to be in place before a tab exists, because
+        // activating one raises the events that use it.
+        _tabs.Activate(_tabs.Add());
 
         Status.ZoomChanged += (_, zoom) => Editor.Zoom = zoom;
         Status.ShowZoomWithoutRaising(_settings.Zoom);
@@ -83,6 +96,84 @@ public partial class MainWindow : Window
         Log.Info(
             $"window created (portable: {AppPaths.IsPortable}, "
             + $"files on command line: {_options.Files.Count})");
+    }
+
+    /// <summary>
+    /// The editor showing now. Every command reads this when it runs, which is
+    /// what makes one set of bindings work for every tab (Section 6.12).
+    /// </summary>
+    internal EditorView Editor => _tabs.ViewFor(_tabs.Active!);
+
+    /// <summary>The active editor's RichTextBox, which is what the commands take.</summary>
+    private RichTextBox Rtb => Editor.Editor;
+
+    /// <summary>
+    /// Every open document, in tab order (Section 6.12).
+    /// </summary>
+    /// <remarks>
+    /// Phase 8 needs this: recovery writes one file per open document and
+    /// AutoSave saves each modified one, and neither of them is a tab's
+    /// business.
+    /// </remarks>
+    internal IReadOnlyList<DocumentSession> OpenDocuments => _tabs.Tabs;
+
+    /// <summary>
+    /// Everything a new tab's editor needs that belongs to the window rather
+    /// than to the control. Called once per tab, the first time it is shown.
+    /// </summary>
+    private void WireView(DocumentSession session)
+    {
+        var view = session.View!;
+
+        view.ApplyDefaults(_settings, _styles);
+
+        view.FormatStateChanged += OnFormatStateChanged;
+        view.CountsChanged += OnCountsChanged;
+        view.DocumentChanged += (_, _) => OnDocumentEdited(session);
+        view.Editor.ContextMenuOpening += OnEditorContextMenuOpening;
+
+        PasteFilter.Attach(view.Editor);
+
+        if (_spellCheckStarted)
+        {
+            ApplySpellCheck(view);
+        }
+    }
+
+    /// <summary>
+    /// A different tab is showing: point everything that holds "the editor" at
+    /// the new one.
+    /// </summary>
+    private void OnActiveTabChanged(DocumentSession session)
+    {
+        FormatToolbars.Target = Editor;
+
+        // The menus raise their commands at the editor, so the target has to
+        // follow the tab or a menu item would act on the document that is no
+        // longer visible.
+        RouteMenuCommandsToEditor();
+
+        UpdateTitle();
+        RefreshTabStrip();
+
+        Status.ShowFormat(session.FormatName);
+        Status.ShowZoomWithoutRaising(Editor.Zoom);
+
+        ShowOpenWarnings(session.OpenWarnings);
+
+        // The matches belonged to the document that was showing.
+        _matches = [];
+        _matchesFor = null;
+
+        RecountMatches();
+    }
+
+    /// <summary>A tab was clicked: show it, and read its file if it has not been read.</summary>
+    private void ActivateTab(DocumentSession session)
+    {
+        _tabs.Activate(session);
+
+        _ = LoadPendingAsync(session);
     }
 
     /// <summary>
@@ -135,28 +226,46 @@ public partial class MainWindow : Window
                 e.Handled = true;
             }));
 
+    /// <summary>
+    /// Binds every command once, for the life of the window.
+    /// </summary>
+    /// <remarks>
+    /// Each one reaches the editor through <see cref="Rtb"/>, which is a
+    /// property and so is read when the command runs. That is the whole of what
+    /// tabs needed from this method: a local variable captured here would have
+    /// pinned every command to the first tab's editor for ever, and the symptom
+    /// would have been formatting applied to an invisible document.
+    /// </remarks>
     private void BindCommands()
     {
-        var rtb = Editor.Editor;
-
         // ---- File ----
         Bind(Commands.NewTab, _ => NewDocument());
         Bind(Commands.Open, _ => _ = OpenWithDialogAsync());
-        Bind(Commands.Save, _ => _ = SaveAsync(saveAs: false));
-        Bind(Commands.SaveAs, _ => _ = SaveAsync(saveAs: true));
+        Bind(Commands.Save, _ => _ = SaveAsync(Session, saveAs: false));
+        Bind(Commands.SaveAs, _ => _ = SaveAsync(Session, saveAs: true));
+        Bind(Commands.SaveAll, _ => _ = SaveAllAsync(), () => _tabs.Modified.Count > 0);
+        Bind(Commands.CloseTab, _ => _ = CloseTabAsync(Session));
+        Bind(Commands.NextTab, _ => _tabs.Cycle(backwards: false), () => _tabs.Tabs.Count > 1);
+        Bind(Commands.PreviousTab, _ => _tabs.Cycle(backwards: true), () => _tabs.Tabs.Count > 1);
         Bind(Commands.Exit, _ => Close());
         Bind(Commands.OpenFontFolder, _ => OpenFontFolder());
 
         // ---- Edit ----
-        Bind(Commands.PastePlainText, _ => PasteFilter.PastePlainText(rtb));
+        Bind(Commands.PastePlainText, _ => PasteFilter.PastePlainText(Rtb));
+
+        // ---- Find and replace: Section 6.10 ----
+        Bind(Commands.Find, _ => OpenFindBar(replacing: false));
+        Bind(Commands.Replace, _ => OpenFindBar(replacing: true));
+        Bind(Commands.FindNext, _ => _ = FindAgainAsync(backwards: false));
+        Bind(Commands.FindPrevious, _ => _ = FindAgainAsync(backwards: true));
 
         // ---- Format: characters ----
-        Bind(Commands.Strikethrough, _ => FormatCommands.ToggleStrikethrough(rtb));
-        Bind(Commands.SmallCaps, _ => FormatCommands.ToggleSmallCaps(rtb));
-        Bind(Commands.Superscript, _ => FormatCommands.SetVerticalAlignment(rtb, VAlign.Super));
-        Bind(Commands.Subscript, _ => FormatCommands.SetVerticalAlignment(rtb, VAlign.Sub));
-        Bind(Commands.GrowFont, _ => FormatCommands.GrowFont(rtb));
-        Bind(Commands.ShrinkFont, _ => FormatCommands.ShrinkFont(rtb));
+        Bind(Commands.Strikethrough, _ => FormatCommands.ToggleStrikethrough(Rtb));
+        Bind(Commands.SmallCaps, _ => FormatCommands.ToggleSmallCaps(Rtb));
+        Bind(Commands.Superscript, _ => FormatCommands.SetVerticalAlignment(Rtb, VAlign.Super));
+        Bind(Commands.Subscript, _ => FormatCommands.SetVerticalAlignment(Rtb, VAlign.Sub));
+        Bind(Commands.GrowFont, _ => FormatCommands.GrowFont(Rtb));
+        Bind(Commands.ShrinkFont, _ => FormatCommands.ShrinkFont(Rtb));
 
         Bind(Commands.SetUnderline, p =>
         {
@@ -164,14 +273,14 @@ public partial class MainWindow : Window
             // underline. A named kind comes from the Format menu.
             if (p is null)
             {
-                var kind = Bridge.SpProps.ReadUnderline(rtb.Selection) ?? UnderlineKind.None;
+                var kind = Bridge.SpProps.ReadUnderline(Rtb.Selection) ?? UnderlineKind.None;
 
                 FormatCommands.SetUnderline(
-                    rtb, kind == UnderlineKind.None ? UnderlineKind.Single : UnderlineKind.None);
+                    Rtb, kind == UnderlineKind.None ? UnderlineKind.Single : UnderlineKind.None);
             }
             else if (Parse<UnderlineKind>(p) is { } named)
             {
-                FormatCommands.SetUnderline(rtb, named);
+                FormatCommands.SetUnderline(Rtb, named);
             }
         });
 
@@ -179,7 +288,7 @@ public partial class MainWindow : Window
         {
             if (Parse<CaseMode>(p) is { } mode)
             {
-                FormatCommands.ChangeCase(rtb, mode);
+                FormatCommands.ChangeCase(Rtb, mode);
             }
         });
 
@@ -188,11 +297,11 @@ public partial class MainWindow : Window
         {
             if (p is string name)
             {
-                FormatCommands.SetStyle(rtb, name, _styles);
+                FormatCommands.SetStyle(Rtb, name, _styles);
             }
         });
 
-        Bind(Commands.StyleNormal, _ => FormatCommands.SetStyle(rtb, "Normal", _styles));
+        Bind(Commands.StyleNormal, _ => FormatCommands.SetStyle(Rtb, "Normal", _styles));
         for (var level = 1; level <= 6; level++)
         {
             var name = $"Heading {level}";
@@ -206,23 +315,23 @@ public partial class MainWindow : Window
                 _ => Commands.StyleHeading6,
             };
 
-            Bind(command, _ => FormatCommands.SetStyle(rtb, name, _styles));
+            Bind(command, _ => FormatCommands.SetStyle(Rtb, name, _styles));
         }
 
         Bind(Commands.SetLineSpacing, p =>
         {
             if (ParseDouble(p) is { } multiple)
             {
-                FormatCommands.SetLineSpacing(rtb, multiple);
+                FormatCommands.SetLineSpacing(Rtb, multiple);
             }
         });
 
-        Bind(Commands.ClearFormatting, _ => FormatCommands.ClearFormatting(rtb, _styles));
+        Bind(Commands.ClearFormatting, _ => FormatCommands.ClearFormatting(Rtb, _styles));
         Bind(Commands.FormatPainter, _ => FormatToolbars.PickFormatPainter());
 
         // ---- Insert ----
         Bind(Commands.InsertDateAndTime, _ =>
-            rtb.CaretPosition.InsertTextInRun(
+            Rtb.CaretPosition.InsertTextInRun(
                 DateTime.Now.ToString("d MMMM yyyy HH:mm", CultureInfo.CurrentCulture)));
 
         Bind(Commands.InsertImage, _ => InsertImage());
@@ -231,67 +340,78 @@ public partial class MainWindow : Window
         Bind(Commands.InsertPageBreak, _ => InsertPageBreak());
 
         // ---- Lists ----
-        Bind(Commands.ToggleBulletList, _ => ListCommands.ToggleBullets(rtb));
-        Bind(Commands.ToggleNumberList, _ => ListCommands.ToggleNumbering(rtb));
+        Bind(Commands.ToggleBulletList, _ => ListCommands.ToggleBullets(Rtb));
+        Bind(Commands.ToggleNumberList, _ => ListCommands.ToggleNumbering(Rtb));
 
         Bind(
             Commands.RestartNumbering,
-            _ => ListCommands.RestartNumbering(rtb),
-            () => ListCommands.CaretIsInNumberedList(rtb));
+            _ => ListCommands.RestartNumbering(Rtb),
+            () => ListCommands.CaretIsInNumberedList(Rtb));
 
         Bind(
             Commands.ContinueNumbering,
-            _ => ListCommands.ContinueNumbering(rtb),
-            () => ListCommands.CaretIsInNumberedList(rtb));
+            _ => ListCommands.ContinueNumbering(Rtb),
+            () => ListCommands.CaretIsInNumberedList(Rtb));
 
         // ---- Table ----
         // Every one of these asks the same question, so the Table menu greys
         // itself out as a whole when the caret leaves a table.
-        bool InTable() => TableCommands.CaretIsInTable(rtb);
+        bool InTable() => TableCommands.CaretIsInTable(Rtb);
 
-        Bind(Commands.InsertRowAbove, _ => TableCommands.InsertRow(rtb, above: true), InTable);
-        Bind(Commands.InsertRowBelow, _ => TableCommands.InsertRow(rtb, above: false), InTable);
-        Bind(Commands.InsertColumnLeft, _ => TableCommands.InsertColumn(rtb, left: true), InTable);
-        Bind(Commands.InsertColumnRight, _ => TableCommands.InsertColumn(rtb, left: false), InTable);
-        Bind(Commands.DeleteRow, _ => TableCommands.DeleteRow(rtb), InTable);
-        Bind(Commands.DeleteColumn, _ => TableCommands.DeleteColumn(rtb), InTable);
-        Bind(Commands.DeleteTable, _ => TableCommands.DeleteTable(rtb), InTable);
+        Bind(Commands.InsertRowAbove, _ => TableCommands.InsertRow(Rtb, above: true), InTable);
+        Bind(Commands.InsertRowBelow, _ => TableCommands.InsertRow(Rtb, above: false), InTable);
+        Bind(Commands.InsertColumnLeft, _ => TableCommands.InsertColumn(Rtb, left: true), InTable);
+        Bind(Commands.InsertColumnRight, _ => TableCommands.InsertColumn(Rtb, left: false), InTable);
+        Bind(Commands.DeleteRow, _ => TableCommands.DeleteRow(Rtb), InTable);
+        Bind(Commands.DeleteColumn, _ => TableCommands.DeleteColumn(Rtb), InTable);
+        Bind(Commands.DeleteTable, _ => TableCommands.DeleteTable(Rtb), InTable);
         Bind(Commands.CellShading, _ => PickCellShading(), InTable);
-        Bind(Commands.ToggleTableBorders, _ => TableCommands.ToggleBorders(rtb), InTable);
+        Bind(Commands.ToggleTableBorders, _ => TableCommands.ToggleBorders(Rtb), InTable);
 
-        Bind(Commands.MergeCells, _ => TableCommands.Merge(rtb), () => TableCommands.CanMerge(rtb));
-        Bind(Commands.SplitCell, _ => TableCommands.Split(rtb), () => TableCommands.CanSplit(rtb));
+        Bind(Commands.MergeCells, _ => TableCommands.Merge(Rtb), () => TableCommands.CanMerge(Rtb));
+        Bind(Commands.SplitCell, _ => TableCommands.Split(Rtb), () => TableCommands.CanSplit(Rtb));
 
         // ---- Images and links ----
         Bind(
             Commands.ImageProperties,
             _ => ShowImageProperties(),
-            () => ImageSupport.ImageAt(rtb) is not null);
+            () => ImageSupport.ImageAt(Rtb) is not null);
 
         Bind(Commands.InsertLink, _ => ShowLinkDialog());
 
         Bind(
             Commands.EditLink,
             _ => ShowLinkDialog(),
-            () => LinkSupport.LinkAt(rtb) is not null);
+            () => LinkSupport.LinkAt(Rtb) is not null);
 
         Bind(
             Commands.RemoveLink,
-            _ => LinkSupport.Remove(rtb),
-            () => LinkSupport.LinkAt(rtb) is not null);
+            _ => LinkSupport.Remove(Rtb),
+            () => LinkSupport.LinkAt(Rtb) is not null);
 
         Bind(
             Commands.OpenLink,
             _ =>
             {
-                if (LinkSupport.LinkAt(rtb) is { } link)
+                if (LinkSupport.LinkAt(Rtb) is { } link)
                 {
                     LinkSupport.Open(link, this);
                 }
             },
-            () => LinkSupport.LinkAt(rtb) is not null);
+            () => LinkSupport.LinkAt(Rtb) is not null);
 
         // ---- Tools ----
+        Bind(Commands.ToggleSpellCheck, _ => ToggleSpellCheck());
+        Bind(Commands.EditUserDictionary, _ => EditUserDictionary());
+
+        Bind(Commands.SetSpellCheckLanguage, p =>
+        {
+            if (p is string language)
+            {
+                SetSpellCheckLanguage(language);
+            }
+        });
+
         Bind(Commands.WordCount, _ => ShowWordCount());
         Bind(Commands.ReloadFonts, _ => ReloadFonts());
         Bind(Commands.FontReport, _ => ShowFontReport());
@@ -307,10 +427,18 @@ public partial class MainWindow : Window
             }
         });
 
+        // Dark paper and the page view are one setting for the app, so they
+        // apply to every open tab rather than only to the one in front - a
+        // half-dark set of tabs would just look like a bug.
         Bind(Commands.ToggleDarkPaper, _ =>
         {
             _settings = _settings with { DarkPaper = !_settings.DarkPaper };
-            Editor.DarkPaper = _settings.DarkPaper;
+
+            foreach (var view in LiveViews())
+            {
+                view.DarkPaper = _settings.DarkPaper;
+            }
+
             SyncViewMenu();
         });
 
@@ -319,7 +447,12 @@ public partial class MainWindow : Window
             if (Parse<PageViewMode>(p) is { } mode)
             {
                 _settings = _settings with { PageView = mode };
-                Editor.PageView = mode;
+
+                foreach (var view in LiveViews())
+                {
+                    view.PageView = mode;
+                }
+
                 SyncViewMenu();
             }
         });
@@ -398,6 +531,12 @@ public partial class MainWindow : Window
     /// Fills Format, Paragraph Style from the style sheet, so a style added to
     /// styles.json appears in the menu without a code change.
     /// </summary>
+    /// <remarks>
+    /// The items get no command target here. This runs before the first tab
+    /// exists, and <see cref="RouteMenuCommandsToEditor"/> sets the target for
+    /// every menu item - these included, since they are descendants of the menu
+    /// - each time the active tab changes.
+    /// </remarks>
     private void BuildParagraphStyleMenu()
     {
         foreach (var style in _styles.All)
@@ -407,11 +546,19 @@ public partial class MainWindow : Window
                 Header = style.Name,
                 Command = Commands.SetParagraphStyle,
                 CommandParameter = style.Name,
-                CommandTarget = Editor.Editor,
                 InputGestureText = ShortcutFor(style.Name),
             });
         }
     }
+
+    /// <summary>
+    /// The editors that exist: a tab that has never been shown has none
+    /// (Section 2.1), and a setting that applies to every tab can only reach
+    /// the ones that have been built. The rest pick it up from
+    /// <c>ApplyDefaults</c> when they are.
+    /// </summary>
+    private IEnumerable<EditorView> LiveViews() =>
+        _tabs.Tabs.Select(t => t.View).OfType<EditorView>();
 
     private static string ShortcutFor(string styleName) => styleName switch
     {
@@ -481,8 +628,15 @@ public partial class MainWindow : Window
         FontRegistry.PreparationProgress += OnFontProgress;
         FontRegistry.StartBackgroundPreparation();
 
-        // Files named on the command line, or dragged onto the .exe.
-        _ = OpenCommandLineFilesAsync();
+        // Section 6.11 and Section 2.1: switching spell check on loads the
+        // Windows spell checker, so it waits until here. Before this line the
+        // window has no spell checking at all, which is a second or two of a
+        // document nobody has typed in yet.
+        StartSpellCheck();
+
+        // Files named on the command line or dragged onto the .exe, and
+        // otherwise the last session's (Section 6.12).
+        _ = OpenStartupFilesAsync();
     }
 
     private void OnFontsChanged(object? sender, EventArgs e)
@@ -496,7 +650,10 @@ public partial class MainWindow : Window
         // it never enumerates the installed fonts to find out.
         if (FontRegistry.TryFolderFamily(_settings.DefaultFontFamily, out var folderDefault))
         {
-            Editor.Editor.FontFamily = folderDefault;
+            foreach (var view in LiveViews())
+            {
+                view.Editor.FontFamily = folderDefault;
+            }
         }
 
         // Only worth saying once the first pass is done - during it, the
@@ -759,8 +916,18 @@ public partial class MainWindow : Window
     private void OnDismissMissingFonts(object sender, RoutedEventArgs e) =>
         MissingFontsBar.Visibility = Visibility.Collapsed;
 
+    /// <summary>
+    /// The toolbars and the status bar follow the active editor only. Every tab
+    /// raises this, and a background tab finishing a throttled readout would
+    /// otherwise put another document's formatting in the toolbar.
+    /// </summary>
     private void OnFormatStateChanged(object? sender, FormatState state)
     {
+        if (!ReferenceEquals(sender, _tabs.Active?.View))
+        {
+            return;
+        }
+
         FormatToolbars.UpdateFrom(state);
         Status.UpdateFrom(state);
 
@@ -768,8 +935,15 @@ public partial class MainWindow : Window
         FormatToolbars.PaintIfArmed();
     }
 
-    private void OnCountsChanged(object? sender, (int Words, int Characters, int? SelectedWords) counts) =>
+    private void OnCountsChanged(object? sender, (int Words, int Characters, int? SelectedWords) counts)
+    {
+        if (!ReferenceEquals(sender, _tabs.Active?.View))
+        {
+            return;
+        }
+
         Status.ShowCounts(counts.Words, counts.Characters, counts.SelectedWords);
+    }
 
     private void SyncViewMenu()
     {
@@ -785,12 +959,25 @@ public partial class MainWindow : Window
 
     private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
-        // Asked before anything is saved, so answering No leaves the window
-        // open with the document untouched.
-        if (!ConfirmDiscard())
+        // Asked before anything is saved, so Cancel leaves the window open with
+        // every document untouched.
+        if (!_closingAfterSave && _tabs.Modified.Count > 0)
         {
-            e.Cancel = true;
-            return;
+            switch (AskAboutEverything())
+            {
+                case Dialogs.UnsavedChanges.Answer.Cancel:
+                    e.Cancel = true;
+                    return;
+
+                case Dialogs.UnsavedChanges.Answer.Save:
+                    // Closing cannot be awaited, so the close is called off,
+                    // the saves run, and the window closes itself once they are
+                    // done. Letting the close carry on while writes were still
+                    // in flight would be a close that lost them.
+                    e.Cancel = true;
+                    _ = SaveThenCloseAsync();
+                    return;
+            }
         }
 
         // The window's own geometry and the view settings are saved here; the
@@ -809,7 +996,53 @@ public partial class MainWindow : Window
             Zoom = Editor.Zoom,
         };
 
-        PasteFilter.Detach(Editor.Editor);
+        // What to reopen next launch, when the setting asks for it
+        // (Section 6.12). Named files only: an untitled document has no name
+        // to reopen, and its contents are recovery's business.
+        SessionFiles.Save(_tabs.Tabs.Select(t => t.FilePath).OfType<string>());
+
+        foreach (var view in LiveViews())
+        {
+            PasteFilter.Detach(view.Editor);
+        }
+    }
+
+    /// <summary>
+    /// Exit asks about every modified tab in one dialog rather than one after
+    /// another (Section 6.12).
+    /// </summary>
+    /// <remarks>
+    /// One dialog because a prompt per tab is a prompt the user stops reading:
+    /// with four modified documents the fourth Yes/No/Cancel is pressed without
+    /// being read, and the whole point of asking is lost.
+    /// </remarks>
+    private Dialogs.UnsavedChanges.Answer AskAboutEverything()
+    {
+        var dialog = new Dialogs.UnsavedChanges { Owner = this };
+
+        dialog.Describe(_tabs.Modified.Select(t => t.Title));
+        dialog.ShowDialog();
+
+        return dialog.Result;
+    }
+
+    /// <summary>Set while the window is closing itself after a Save All on exit.</summary>
+    private bool _closingAfterSave;
+
+    private async Task SaveThenCloseAsync()
+    {
+        foreach (var session in _tabs.Modified.ToList())
+        {
+            if (!await SaveAsync(session, saveAs: false).ConfigureAwait(true))
+            {
+                // A Save As that was cancelled, or a write that failed. The
+                // window stays open, which is the only safe answer.
+                return;
+            }
+        }
+
+        _closingAfterSave = true;
+        Close();
     }
 
     /// <summary>

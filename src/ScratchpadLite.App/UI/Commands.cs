@@ -70,6 +70,9 @@ public static class Commands
     public static readonly RoutedUICommand NextTab =
         Make("Next Tab", nameof(NextTab), Key(System.Windows.Input.Key.Tab, Ctrl));
 
+    public static readonly RoutedUICommand PreviousTab =
+        Make("Previous Tab", nameof(PreviousTab), Key(System.Windows.Input.Key.Tab, CtrlShift));
+
     public static readonly RoutedUICommand PageSetup = Make("Page Setup...", nameof(PageSetup));
 
     public static readonly RoutedUICommand Print =
@@ -89,6 +92,18 @@ public static class Commands
 
     public static readonly RoutedUICommand PastePlainText =
         Make("Paste as Plain Text", nameof(PastePlainText), Key(System.Windows.Input.Key.V, CtrlShift));
+
+    public static readonly RoutedUICommand Find =
+        Make("Find...", nameof(Find), Key(System.Windows.Input.Key.F, Ctrl));
+
+    public static readonly RoutedUICommand Replace =
+        Make("Replace...", nameof(Replace), Key(System.Windows.Input.Key.H, Ctrl));
+
+    public static readonly RoutedUICommand FindNext =
+        Make("Find Next", nameof(FindNext), Key(System.Windows.Input.Key.F3));
+
+    public static readonly RoutedUICommand FindPrevious =
+        Make("Find Previous", nameof(FindPrevious), Key(System.Windows.Input.Key.F3, ModifierKeys.Shift));
 
     // -------------------------------------------------------------- Format --
 
@@ -244,6 +259,16 @@ public static class Commands
 
     public static readonly RoutedUICommand EditUserDictionary =
         Make("Edit User Dictionary...", nameof(EditUserDictionary));
+
+    /// <summary>Takes the language tag, such as "en-GB", as its parameter.</summary>
+    public static readonly RoutedUICommand SetSpellCheckLanguage =
+        Make("Language", nameof(SetSpellCheckLanguage));
+
+    // The spelling suggestions, Ignore All and Add to Dictionary are not
+    // commands. They are built into the context menu as it opens, because each
+    // one acts on the particular SpellingError under the pointer - and a
+    // command with a gesture that could only ever be raised from one menu is a
+    // shortcut nobody can press (Section 6.11).
 
     public static readonly RoutedUICommand WordCount = Make("Word Count...", nameof(WordCount));
 

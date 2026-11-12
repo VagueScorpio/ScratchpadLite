@@ -81,6 +81,20 @@ internal static class AppHost
         });
 
     /// <summary>
+    /// Lets WPF finish loading whatever was just added to a shown window.
+    /// </summary>
+    /// <remarks>
+    /// <c>UpdateLayout</c> is not enough. <c>Loaded</c> is raised from the
+    /// dispatcher queue, and a RichTextBox gets no undo history until it is
+    /// loaded - so a control added to a window after it was shown accepts text,
+    /// reports <c>IsUndoEnabled</c> true, and then has <c>CanUndo</c> false for
+    /// ever. A test that typed and undid on such a control would prove nothing
+    /// and look like a broken Undo.
+    /// </remarks>
+    internal static void Settle() =>
+        Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.Loaded);
+
+    /// <summary>
     /// An empty editor set up the way <c>EditorView.xaml</c> sets its own up.
     /// </summary>
     /// <remarks>

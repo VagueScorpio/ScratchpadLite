@@ -1,0 +1,39 @@
+<UserControl x:Class="ScratchpadLite.App.UI.TabStrip"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Section 6.12. Headers only: every editor lives in the window's host
+         grid and is switched by Visibility, because a TabControl rebuilds the
+         content of a tab each time it is shown and would throw away the
+         RichTextBox's undo history.
+
+         The headers are built in code rather than from a DataTemplate. A
+         template would need DocumentSession and its properties to be public
+         for WPF's binding to see them, and a document session is not part of
+         this app's public surface. -->
+
+    <Border Background="{DynamicResource ChromeBackground}"
+            BorderBrush="{DynamicResource BorderBrushSoft}"
+            BorderThickness="0,0,0,1">
+
+        <DockPanel LastChildFill="True">
+            <Button x:Name="NewTabButton"
+                    DockPanel.Dock="Right"
+                    Width="28"
+                    Margin="2"
+                    Padding="0"
+                    Content="&#xE710;"
+                    FontFamily="{StaticResource IconFont}"
+                    FontSize="12"
+                    ToolTip="New tab (Ctrl+N)"
+                    Click="OnNewTabClick" />
+
+            <ScrollViewer HorizontalScrollBarVisibility="Hidden"
+                          VerticalScrollBarVisibility="Disabled"
+                          PanningMode="HorizontalOnly">
+
+                <StackPanel x:Name="Headers" Orientation="Horizontal" />
+            </ScrollViewer>
+        </DockPanel>
+    </Border>
+</UserControl>
