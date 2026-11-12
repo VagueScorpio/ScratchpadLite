@@ -60,6 +60,30 @@ internal sealed class DocumentSession
     /// <summary>When this document was last written to its recovery file (Section 6.13.1).</summary>
     internal DateTime LastRecoveryWriteUtc { get; set; }
 
+    /// <summary>
+    /// Whether this document has been edited since its last recovery write
+    /// (Section 6.13.1).
+    /// </summary>
+    /// <remarks>
+    /// Not the same as <see cref="IsDirty"/>: a document saved by hand is no
+    /// longer dirty but its recovery copy is still out of date until the next
+    /// write, and a document edited twice between two ticks only needs writing
+    /// once. This flag is what stops the timer walking every open document
+    /// every time it fires.
+    /// </remarks>
+    internal bool EditedSinceRecoveryWrite { get; set; }
+
+    /// <summary>
+    /// Whether a <c>.bak</c> has already been made for this document this
+    /// session (Section 6.13.2).
+    /// </summary>
+    /// <remarks>
+    /// With AutoSave on, a backup per save is a backup of the version from two
+    /// minutes ago, which is worth nothing: the useful one is the version from
+    /// when the file was opened. So it is written once and then left alone.
+    /// </remarks>
+    internal bool BakWritten { get; set; }
+
     /// <summary>When AutoSave last saved this document (Section 6.13.2).</summary>
     internal DateTime LastAutoSaveUtc { get; set; }
 

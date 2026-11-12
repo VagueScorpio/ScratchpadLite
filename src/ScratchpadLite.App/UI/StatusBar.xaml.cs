@@ -37,10 +37,51 @@ public partial class StatusBar : UserControl
         ShowCaret(1, 1);
         LanguageText.Text = "en-US";
         FormatText.Text = "TXT";
+        ShowAutoSaveWithoutRaising(false, null);
     }
 
     /// <summary>Raised when the user drags the zoom slider.</summary>
     internal event EventHandler<double>? ZoomChanged;
+
+    /// <summary>Raised when the user clicks the AutoSave switch (Section 6.13.2).</summary>
+    internal event EventHandler<bool>? AutoSaveToggled;
+
+    private bool _suppressAutoSave;
+
+    /// <summary>
+    /// Shows the AutoSave switch as it is, without raising the event.
+    /// </summary>
+    /// <param name="on">Whether AutoSave is on.</param>
+    /// <param name="tooltip">
+    /// Why it is not saving the document in front, when it is not
+    /// (Section 6.13.2). Null keeps the plain explanation.
+    /// </param>
+    internal void ShowAutoSaveWithoutRaising(bool on, string? tooltip)
+    {
+        _suppressAutoSave = true;
+        try
+        {
+            AutoSaveToggle.IsChecked = on;
+            AutoSaveToggle.Content = on ? "AutoSave: On" : "AutoSave: Off";
+
+            if (tooltip is { Length: > 0 })
+            {
+                AutoSaveToggle.ToolTip = tooltip;
+            }
+        }
+        finally
+        {
+            _suppressAutoSave = false;
+        }
+    }
+
+    private void OnAutoSaveToggled(object sender, System.Windows.RoutedEventArgs e)
+    {
+        if (!_suppressAutoSave)
+        {
+            AutoSaveToggled?.Invoke(this, AutoSaveToggle.IsChecked == true);
+        }
+    }
 
     internal void ShowZoomWithoutRaising(double zoom)
     {

@@ -2,13 +2,42 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="About Scratchpad Lite"
-        SizeToContent="WidthAndHeight"
-        ResizeMode="CanResizeWithGrip"
+        SizeToContent="Height"
+        Width="520"
+        ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
-        ShowInTaskbar="False">
+        ShowInTaskbar="False"
+        Background="{DynamicResource WindowBackground}"
+        Foreground="{DynamicResource WindowForeground}">
 
-    <!-- Phase 8. Shell only: the layout is built when that phase runs. -->
-    <TextBlock Margin="24" MaxWidth="460" TextWrapping="Wrap" Opacity="0.6"
-               Text="About - built in Phase 8." />
+    <!-- A window rather than a MessageBox, for one reason: the paths. Someone
+         reading this wants to go to the data folder or send its path to
+         somebody, and text in a MessageBox cannot be selected. -->
 
+    <StackPanel Margin="20">
+        <TextBlock x:Name="NameText" FontSize="20" FontWeight="SemiBold" />
+        <TextBlock x:Name="VersionText" Opacity="0.75" Margin="0,2,0,14" />
+
+        <TextBlock TextWrapping="Wrap" Margin="0,0,0,14"
+                   Text="A portable word processor: one .exe, no installer, and nothing written outside its own folder." />
+
+        <Grid x:Name="Facts" Margin="0,0,0,6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+        </Grid>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+            <Button Content="Open Data Folder"
+                    MinWidth="130"
+                    Margin="0,0,8,0"
+                    Click="OnOpenDataFolder" />
+
+            <Button Content="Close"
+                    MinWidth="90"
+                    IsDefault="True"
+                    IsCancel="True" />
+        </StackPanel>
+    </StackPanel>
 </Window>

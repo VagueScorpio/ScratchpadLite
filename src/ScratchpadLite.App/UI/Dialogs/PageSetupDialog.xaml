@@ -2,13 +2,104 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Page Setup"
-        SizeToContent="WidthAndHeight"
-        ResizeMode="CanResizeWithGrip"
+        SizeToContent="Height"
+        Width="400"
+        ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
-        ShowInTaskbar="False">
+        ShowInTaskbar="False"
+        Background="{DynamicResource WindowBackground}"
+        Foreground="{DynamicResource WindowForeground}">
 
-    <!-- Phase 8. Shell only: the layout is built when that phase runs. -->
-    <TextBlock Margin="24" MaxWidth="460" TextWrapping="Wrap" Opacity="0.6"
-               Text="PageSetupDialog - built in Phase 8." />
+    <!-- Section 6.17. Paper, orientation and margins. These belong to the
+         document rather than to the application: they are saved in DOCX and
+         ODT, so the same file prints the same way on another PC. -->
 
+    <StackPanel Margin="20">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Grid.Column="0"
+                       Text="Paper"
+                       VerticalAlignment="Center"
+                       Margin="0,0,12,10" />
+
+            <ComboBox x:Name="PaperBox"
+                      Grid.Row="0" Grid.Column="1"
+                      Margin="0,0,0,10" />
+
+            <TextBlock Grid.Row="1" Grid.Column="0"
+                       Text="Orientation"
+                       VerticalAlignment="Center"
+                       Margin="0,0,12,0" />
+
+            <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal">
+                <RadioButton x:Name="PortraitButton"
+                             Content="Portrait"
+                             GroupName="Orientation"
+                             IsChecked="True"
+                             Margin="0,0,16,0" />
+
+                <RadioButton x:Name="LandscapeButton"
+                             Content="Landscape"
+                             GroupName="Orientation" />
+            </StackPanel>
+        </Grid>
+
+        <TextBlock Text="Margins (inches)" Margin="0,18,0,8" FontWeight="SemiBold" />
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="Top"
+                       VerticalAlignment="Center" Margin="0,0,8,8" />
+            <TextBox x:Name="TopBox" Grid.Row="0" Grid.Column="1" Margin="0,0,0,8" MaxLength="6" />
+
+            <TextBlock Grid.Row="0" Grid.Column="3" Text="Bottom"
+                       VerticalAlignment="Center" Margin="0,0,8,8" />
+            <TextBox x:Name="BottomBox" Grid.Row="0" Grid.Column="4" Margin="0,0,0,8" MaxLength="6" />
+
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="Left"
+                       VerticalAlignment="Center" Margin="0,0,8,0" />
+            <TextBox x:Name="LeftBox" Grid.Row="1" Grid.Column="1" MaxLength="6" />
+
+            <TextBlock Grid.Row="1" Grid.Column="3" Text="Right"
+                       VerticalAlignment="Center" Margin="0,0,8,0" />
+            <TextBox x:Name="RightBox" Grid.Row="1" Grid.Column="4" MaxLength="6" />
+        </Grid>
+
+        <TextBlock x:Name="Problem"
+                   Foreground="#C00000"
+                   TextWrapping="Wrap"
+                   Visibility="Collapsed"
+                   Margin="0,10,0,0" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+            <Button Content="OK"
+                    MinWidth="90"
+                    Margin="0,0,8,0"
+                    IsDefault="True"
+                    Click="OnOk" />
+
+            <Button Content="Cancel"
+                    MinWidth="80"
+                    IsCancel="True" />
+        </StackPanel>
+    </StackPanel>
 </Window>

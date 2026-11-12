@@ -324,7 +324,7 @@ public partial class MainWindow
 
     private void ToggleSpellCheck()
     {
-        _settings = _settings with { SpellCheckEnabled = !_settings.SpellCheckEnabled };
+        Apply(_settings with { SpellCheckEnabled = !_settings.SpellCheckEnabled });
 
         SpellCheckMenuItem.IsChecked = _settings.SpellCheckEnabled;
 
@@ -341,7 +341,7 @@ public partial class MainWindow
 
     private void SetSpellCheckLanguage(string language)
     {
-        _settings = _settings with { SpellCheckLanguage = language };
+        Apply(_settings with { SpellCheckLanguage = language });
 
         foreach (var session in _tabs.Tabs)
         {

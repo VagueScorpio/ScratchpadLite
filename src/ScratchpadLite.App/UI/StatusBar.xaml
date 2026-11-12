@@ -10,12 +10,15 @@
          300 ms (Section 2.1) rather than on every keystroke. -->
 
     <StatusBar>
-        <!-- AutoSave, off by default (Section 6.13.2). Enabled in Phase 8. -->
+        <!-- AutoSave, off by default (Section 6.13.2). The label says On or Off
+             rather than relying on the tick alone, because the question
+             someone asks of this corner of the screen is "is it saving?" and
+             a tick answers it only if you already know what it means. -->
         <CheckBox x:Name="AutoSaveToggle"
-                  Content="AutoSave"
-                  IsEnabled="False"
                   ToolTip="AutoSave writes the real file. Crash recovery is always on and is separate."
-                  VerticalAlignment="Center" />
+                  VerticalAlignment="Center"
+                  Checked="OnAutoSaveToggled"
+                  Unchecked="OnAutoSaveToggled" />
 
         <Separator />
 

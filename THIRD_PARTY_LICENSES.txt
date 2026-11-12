@@ -91,6 +91,18 @@ Deliberately not used
   of ISpellCheckerFactory, which is part of Windows (spellcheck.dll, Windows 8
   and later) and ships with nothing.
 
+  Nothing was added in Phase 8 either. Crash recovery and AutoSave are this
+  project's own code over System.Text.Json and the filesystem. Printing uses
+  WPF's PrintDialog and System.Printing, both in the Windows Desktop runtime
+  that is already published with the app, and PDF export goes through Microsoft
+  Print to PDF, a printer driver that ships with Windows 10 and 11 - nothing is
+  installed and nothing is redistributed. Single instance uses Mutex and
+  System.IO.Pipes from the base libraries, with the pipe's access control from
+  System.IO.Pipes.AccessControl, which is part of the Windows Desktop runtime
+  rather than a package. No PDF library was taken, which is the point: every
+  free one that writes PDF directly would have added megabytes to the .exe to
+  do what a printer Windows already has does for nothing.
+
   WOFF, WOFF2, Type 1, .dfont, .eot and .t42 handling is hand-written, because
   no maintained free .NET library covers them. See the WOFF2 note above for
   what the implementation is based on.

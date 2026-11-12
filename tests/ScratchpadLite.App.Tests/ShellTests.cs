@@ -58,8 +58,12 @@ public class StartupTimerTests
 ///
 /// Phase 8
 /// <list type="bullet">
-///   <item>RecoveryTests: writes recovery files, detects an abandoned lock, restores.</item>
-///   <item>AutoSaveTests: off by default; when on, saves a modified titled .docx after the idle pause; skips untitled, lossy-format, read-only and changed-on-disk files; never clears undo; writes the .bak only on the first save of the session.</item>
+///   <item>RecoveryTests: writes recovery files, detects an abandoned lock - against a real process that is killed - and reads them back; tidies away a folder with nothing in it.</item>
+///   <item>AutoSaveTests: off by default; when on, saves a modified titled .docx after the idle pause; skips untitled, lossy-format, read-only and changed-on-disk files; writes the .bak only on the first save of the session.</item>
+///   <item>PrintingTests: the gate. Both print and PDF come out in one column, checked by looking at where the text actually landed on a laid-out page.</item>
+///   <item>SingleInstanceTests: the per-installation and per-user names, the claim, and a real hand-off over the pipe.</item>
+///   <item>PhaseEightDialogTests: Preferences, Page Setup and Recover Documents read and write what they say they do.</item>
+///   <item>MainWindowTests: the six menu items Phase 8 switched on are no longer greyed out, and the AutoSave switch is on the status bar saying whether it is on.</item>
 /// </list>
 /// </remarks>
 internal static class TestPlan;

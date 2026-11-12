@@ -59,6 +59,16 @@ public static class Log
         }
     }
 
+    /// <summary>
+    /// Today's log file, for the crash message to point at (Section 9).
+    /// </summary>
+    /// <remarks>
+    /// Section 6.13.1 asks the crash message to name the log. Telling someone
+    /// a log exists without telling them where is the same as not telling
+    /// them.
+    /// </remarks>
+    public static string FilePath => CurrentFile();
+
     private static string CurrentFile() =>
         Path.Combine(AppPaths.LogDir, $"scratchpad-{DateTime.Now:yyyyMMdd}.log");
 

@@ -95,6 +95,14 @@ public sealed record SpDocument(
     IReadOnlyList<Block> Blocks,
     IReadOnlyDictionary<string, string> Meta,
     PageSetup Page,
+
+    /// <summary>The fonts the document asks for.</summary>
+    /// <remarks>
+    /// The converter is not decoration: System.Text.Json writes an
+    /// IReadOnlySet happily and will not read one back. See
+    /// <see cref="ReadOnlyStringSetConverter"/>.
+    /// </remarks>
+    [property: JsonConverter(typeof(ReadOnlyStringSetConverter))]
     IReadOnlySet<string> FontsUsed)
 {
     public static SpDocument Empty { get; } = new(

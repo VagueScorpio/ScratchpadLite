@@ -34,6 +34,26 @@ public partial class Toolbars : UserControl
     /// <summary>The editor the buttons act on. Set by the window.</summary>
     internal EditorView? Target { get; set; }
 
+    /// <summary>
+    /// Whether the files-and-font row is shown (Sections 6.2 and 8.1).
+    /// </summary>
+    /// <remarks>
+    /// Collapsed rather than hidden, because a hidden toolbar still takes its
+    /// height and would leave a band of empty chrome where the row used to be.
+    /// </remarks>
+    internal bool ShowRow1
+    {
+        get => Row1.Visibility == Visibility.Visible;
+        set => Row1.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>Whether the formatting row is shown (Sections 6.2 and 8.1).</summary>
+    internal bool ShowRow2
+    {
+        get => Row2.Visibility == Visibility.Visible;
+        set => Row2.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
+    }
+
     /// <summary>The style sheet, needed by the style picker and Clear Formatting.</summary>
     internal StyleSheet Styles { get; private set; } = StyleSheet.Default;
 

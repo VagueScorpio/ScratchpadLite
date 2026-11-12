@@ -8,6 +8,7 @@ underneath. Old entries are never removed.
 Contents
 --------
 
+  v1.8  2026-11-12  Phase 8: recovery, AutoSave, print, single instance
   v1.7  2026-11-11  Phase 7: tabs, find and replace, spell check
   v1.6  2026-11-11  Phase 6: lists, tables, images, links
   v1.5  2026-11-11  Phase 5: Markdown, ODT and RTF
@@ -17,6 +18,222 @@ Contents
   v1.1  2026-11-08  Phase 1: editor core
   v1.0  2026-11-08  Phase 0: skeleton and pipeline
 
+
+--------------------------------------------------------------------------------
+v1.8  -  2026-11-12  -  Phase 8: recovery, AutoSave, print, single instance
+--------------------------------------------------------------------------------
+
+What
+----
+
+Sections 6.13 to 6.17 and the Preferences dialog. Four services that were stubs
+throwing NotImplementedException, and four dialogs that were a grey line of
+placeholder text.
+
+  * Crash recovery (Recovery), always on. Every open document, untitled ones
+    included, is copied to data/recovery/<session>/<document>.json as IR on a
+    timer. A clean exit deletes them. Anything left behind means the last run
+    did not finish, and the next launch offers it back in a dialog with
+    Restore, Restore All, Discard and Later. A restored document opens as an
+    unsaved tab; nothing is written over the original.
+  * The crash handlers now do something. DispatcherUnhandledException and
+    AppDomain.UnhandledException each take one last copy of every open
+    document, and the message names the log file.
+  * AutoSave (AutoSave), off until you turn it on, with a switch on the status
+    bar as well as in the File menu and Preferences, because it writes your own
+    file. It declines a document that has never been saved, one whose format
+    would lose something it uses, one that is read-only, and one that changed
+    on disk - and says which, once, in the status bar. Every one of those still
+    gets its recovery copy.
+  * Print and Export as PDF (Printing). Ctrl+P prints a copy of the document so
+    the one on screen is never reflowed; PDF goes through Microsoft Print to
+    PDF, which ships with Windows, and says how to switch it back on if it has
+    been removed. Both come out in one column, which is this phase's gate.
+  * Page Setup (PageSetupDialog): paper, orientation and margins, shown in
+    inches and stored in points, saved in DOCX and ODT because it belongs to
+    the document.
+  * Single instance (SingleInstance): a named mutex and a named pipe. A second
+    launch hands its files to the first window and exits; the first comes to
+    the front. There is a setting to turn it off. Nothing is written to the
+    registry.
+  * Preferences (Preferences): every setting in Section 6.2, in five tabs.
+    settings.json is now also written 500 ms after a change rather than only at
+    exit.
+  * About, which was still a MessageBox, is a window - so the data and font
+    folder paths can be selected and copied.
+  * Three things found switched off rather than missing: the two toolbar rows
+    had a View menu entry and a setting with nothing behind them, and the New,
+    Open, Save and Print buttons on the first toolbar row had no Command at
+    all. They worked as decoration from Phase 1 to Phase 8.
+  * 854 tests passing (379 in Core, 475 in App), up from 726.
+
+Measured on this PC, publishing the release build:
+
+    warm startup   695 ms and 707 ms, the medians of runs 2-5 of two publishes
+                   (716, 695, 678, 679 and 700, 750, 700, 707)
+    budget         1000 ms warm. Cold is not measured here - it needs a
+                   reboot - and was 2.0 s budgeted.
+    idle memory    160.0 MB working set, 86.9 MB private
+    .exe           169.9 MB, up 0.3 MB from v1.7
+    zip            68.2 MB
+    sha256         957BDE1CA7BB712F438CCB0E1D0ADF051E3B06584FBEC0B8CC754A6B0C3B4499
+
+Two medians rather than one because the second publish gave a different answer
+and quoting whichever was nicer would be dishonest: the spread between runs of
+one publish is 38 ms, so the gap between v1.7's 687 and these is noise and not
+a change. Nothing was added before the first frame except one mutex claim - the
+recovery timer, the pipe listener and AutoSave all start after it.
+
+Why
+---
+
+Recovery and AutoSave are one feature in most word processors and two here,
+because they answer different questions. Recovery answers "the power went out";
+AutoSave answers "I forgot to press Save". Recovery can therefore be on for
+everyone and for every document, since it never touches a file anybody owns.
+AutoSave cannot, because writing someone's file without being asked is a thing
+to be asked about - so it is off, it has a switch where it can be seen, and it
+declines rather than guessing in four cases that all come down to the same
+thing: a save that would not be the save the user would have made.
+
+The whole of recovery rests on one question: how does a launch tell "a copy is
+running right now and those are its working files" from "a copy died and those
+are somebody's unsaved work"? A timestamp cannot answer it. A process id cannot
+either, because Windows reuses them, and a folder naming a pid that now belongs
+to something else reads as live. The answer is a lock file held open with
+FileShare.None for the whole life of the process: Windows releases it when the
+process ends, however it ends, and a folder whose lock file can be opened is a
+folder whose owner is gone. Nothing has to be cleaned up by the thing that
+crashed, which is the only kind of cleanup a crash can be relied on for. The
+test for it kills a real process holding a real lock rather than disposing a
+handle and calling that the same event.
+
+AutoSave does not have a save of its own. It decides whether and when, and the
+window then calls the same SaveAsync a menu click calls. A second save path
+would be a second place for the atomic write, the format warning and the
+changed-on-disk check to drift apart, and the one nobody clicks is the one that
+would rot. What the AutoSave flag changes is only the asking: it opens no
+dialogs, because a dialog raised by a timer appears while the user is typing in
+another program. That is not skipping the checks - the three questions those
+dialogs would have asked were all answered by AutoSave.Check before SaveAsync
+was called.
+
+The printed document is a copy, through DataFormats.XamlPackage. A FlowDocument
+has one set of page settings, and printing needs the printer's rather than the
+editor's, so printing the document itself would mean reflowing what the user is
+looking at and then putting it back. The package form of the clipboard format
+rather than plain XAML, because the package carries the images as parts beside
+the markup while plain XAML leaves a reference behind and prints a hole.
+
+Preferences reads a Settings and gives back a new one, changing nothing itself.
+The window applies what comes back, which is the only way the theme, the open
+editors and the file on disk end up agreeing. Numbers are clamped where a clamp
+has an obvious right answer and refused where it does not: an interval of 2
+seconds becomes 15, because somebody typing 2 wants it as often as possible,
+while an interval of "soon" has to be typed again.
+
+The single-instance check fails open everywhere. A mutex that cannot be
+created, a pipe that cannot be reached, an identity that cannot be read: each
+of them ends with this copy showing its own window. An application that starts
+and silently exits is indistinguishable from one that is broken, and that is a
+worse outcome than two windows. The mutex is claimed before the setting that
+says whether to honour it is read, which looks backwards and is not: claiming
+is one call on the startup path, while reading settings.json to find out
+whether to bother would put a file read in front of every launch for a setting
+almost nobody changes. So the first copy pays for a mutex and nothing else, and
+only a second copy - which is about to exit anyway - pays for the read.
+
+Both names carry a hash of the program folder, so a copy on a USB stick and a
+copy in Documents are separate applications, which is what a portable app
+needs. The pipe name also carries the user's SID and the pipe is created with
+an ACL for that user alone: a named pipe is visible to the whole machine, and
+without those two things another signed-in user could hand this process a list
+of files to open. What arrives over it is treated as data from another process
+- the count and the length of each line are capped, and the window checks that
+each path is a file that exists before opening it.
+
+How
+---
+
+Four bugs and two findings came out of the new tests.
+
+  * The IR could not be read back at all. System.Text.Json writes an
+    IReadOnlySet<string> happily and refuses to read one: "the collection type
+    is abstract, an interface, or is read only, and could not be instantiated
+    and populated". SpDocument.FontsUsed is one. This had been true since Phase
+    4 and nobody had noticed, because nothing read the IR back - the format
+    handlers all parse their own files into IR and serialize IR out, and
+    SpDocument itself had only ever been written. Crash recovery is the first
+    feature in the application that writes IR JSON and then reads it, and it
+    failed on its first test. Fixed with a converter in Core, which also takes
+    a JSON null as an empty set rather than letting a null into a property
+    whose type says it is never null, and writes the names sorted so two writes
+    of one document give the same bytes.
+  * A second Claim() in one process threw away the first one's mutex handle.
+    The field was assigned before the created-new flag was checked, so the
+    handle a successful earlier claim was holding was replaced and then
+    disposed. The application only ever claims once, so this would never have
+    been seen in use - the test that claims twice is what found it.
+  * An abandoned recovery folder with nothing in it was never deleted. A run
+    killed after saving everything leaves a lock file and no documents: the
+    clean-exit path never ran, and the next launch finds nothing in it to
+    offer, so it stayed for ever and one more arrived with every crash. The
+    launch now tidies away abandoned folders holding nothing recoverable, and
+    leaves any folder with so much as one readable document in it for the
+    dialog.
+  * Recovery.Claim only caught IOException and UnauthorizedAccessException. The
+    data folder can come from a settings file or a command line, so a path
+    Windows will not take at all is a thing that can happen, and it threw
+    ArgumentException straight out of a safety net. A recovery write that fails
+    must leave the application running without recovery, not stop it running.
+  * Section 6.17 says a printed FlowDocument comes out in two columns unless
+    ColumnWidth is set to PageWidth. On .NET 10 a FlowDocument's ColumnWidth
+    starts as NaN, which is one column, and a copy made the way Printing.Clone
+    makes one starts there too - so the line is insurance against a document
+    that arrives carrying a column width rather than a cure for a default. The
+    hazard is real: a control test sets a narrow column width and watches text
+    appear in the right-hand half of the sheet. The line stays, and the gate
+    test is what would catch the default changing.
+  * A laid-out page's text is not elements. The first version of the one-column
+    test looked for Glyphs elements in the page's visual tree and found none: a
+    printed FlowDocument page draws each line as a GlyphRunDrawing inside a
+    visual's DrawingGroup. Looking at the glyph origins is the only way to
+    count the columns a FlowDocument used, because the column count is never
+    exposed - and it is the test the phase gate actually needs, since reading
+    ColumnWidth back would only prove the assignment happened.
+
+Two about the tests themselves.
+
+  * A Markdown file with a table in it loses nothing, because Markdown has pipe
+    tables. The first AutoSave test assumed otherwise and failed. The rule is
+    what this document uses against what this format carries, not whether the
+    format feels simple - so the test now uses coloured, underlined text, which
+    Markdown has no syntax for, and there is a second test asserting the table
+    case is fine.
+  * MainWindowTests built its window with MeasureStartup off. Harmless when the
+    only thing past the first frame was font preparation; not harmless once
+    that line also claims a crash-recovery folder in the real data directory
+    and opens the single-instance pipe. Those tests are about what the window
+    parses and lays out, so they now use the measurement flag, which renders
+    one frame and starts none of it.
+
+Six menu items stopped being grey: Page Setup, Print, Export as PDF, Recover
+Documents, AutoSave and Preferences. A Theory in MainWindowTests asserts each
+one is enabled, because a feature can be built and still be unreachable - the
+code works, the unit tests pass, and the menu entry stays grey.
+
+Two menu items are still disabled and are not Phase 8's: Format, Paragraph
+(with Line Spacing, Custom) and Insert, Special Character. Both were left as
+shells in earlier phases without being reported, which was a gap in those
+phase reports rather than a decision.
+
+The recovery interval and the AutoSave interval are stored in seconds although
+Section 6.13 asks for minutes. The fields already shipped that way in Phase 0,
+and seconds is finer than the blueprint asks for rather than coarser; the floor
+is 15 seconds rather than the blueprint's 1 minute, because a recovery write is
+a walk and a small JSON file, and somebody who would rather lose fifteen
+seconds of work than a minute of it should be able to say so. Both defaults are
+the blueprint's two minutes.
 
 --------------------------------------------------------------------------------
 v1.7  -  2026-11-11  -  Phase 7: tabs, find and replace, spell check

@@ -1,7 +1,8 @@
 <UserControl x:Class="ScratchpadLite.App.UI.Toolbars"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:controls="clr-namespace:ScratchpadLite.App.UI.Controls">
+             xmlns:controls="clr-namespace:ScratchpadLite.App.UI.Controls"
+             xmlns:ui="clr-namespace:ScratchpadLite.App.UI">
 
     <!-- Section 8.2. Every glyph is from the Windows icon font (Segoe Fluent
          Icons on 11, falling back to Segoe MDL2 Assets on 10), so there is
@@ -12,14 +13,14 @@
     <StackPanel>
         <!-- Row 1: files, undo, print, and the three pickers. -->
         <ToolBar x:Name="Row1" ToolBarTray.IsLocked="True">
-            <Button x:Name="NewButton" ToolTip="New tab (Ctrl+N)" Style="{StaticResource IconButton}" Content="&#xE7C3;" />
-            <Button x:Name="OpenButton" ToolTip="Open (Ctrl+O)" Style="{StaticResource IconButton}" Content="&#xE8E5;" />
-            <Button x:Name="SaveButton" ToolTip="Save (Ctrl+S)" Style="{StaticResource IconButton}" Content="&#xE74E;" />
+            <Button x:Name="NewButton" ToolTip="New tab (Ctrl+N)" Style="{StaticResource IconButton}" Content="&#xE7C3;" Command="{x:Static ui:Commands.NewTab}" />
+            <Button x:Name="OpenButton" ToolTip="Open (Ctrl+O)" Style="{StaticResource IconButton}" Content="&#xE8E5;" Command="{x:Static ui:Commands.Open}" />
+            <Button x:Name="SaveButton" ToolTip="Save (Ctrl+S)" Style="{StaticResource IconButton}" Content="&#xE74E;" Command="{x:Static ui:Commands.Save}" />
             <Separator />
             <Button x:Name="UndoButton" ToolTip="Undo (Ctrl+Z)" Style="{StaticResource IconButton}" Content="&#xE7A7;" />
             <Button x:Name="RedoButton" ToolTip="Redo (Ctrl+Y)" Style="{StaticResource IconButton}" Content="&#xE7A6;" />
             <Separator />
-            <Button x:Name="PrintButton" ToolTip="Print (Ctrl+P)" Style="{StaticResource IconButton}" Content="&#xE749;" />
+            <Button x:Name="PrintButton" ToolTip="Print (Ctrl+P)" Style="{StaticResource IconButton}" Content="&#xE749;" Command="{x:Static ui:Commands.Print}" />
             <Separator />
             <controls:StylePicker x:Name="StyleBox" />
             <controls:FontPicker x:Name="FontBox" />

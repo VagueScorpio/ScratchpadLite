@@ -2,13 +2,68 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Recover Documents"
-        SizeToContent="WidthAndHeight"
-        ResizeMode="CanResizeWithGrip"
+        SizeToContent="Height"
+        Width="520"
+        MaxHeight="560"
+        ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
-        ShowInTaskbar="False">
+        ShowInTaskbar="False"
+        Background="{DynamicResource WindowBackground}"
+        Foreground="{DynamicResource WindowForeground}">
 
-    <!-- Phase 8. Shell only: the layout is built when that phase runs. -->
-    <TextBlock Margin="24" MaxWidth="460" TextWrapping="Wrap" Opacity="0.6"
-               Text="RecoveryDialog - built in Phase 8." />
+    <!-- Section 6.13.1. Shown when a previous run left recovery files behind,
+         which means it did not finish. Nothing is deleted without being asked,
+         and a restored document opens as a modified tab rather than being
+         written over the original. -->
 
+    <DockPanel Margin="18">
+        <TextBlock DockPanel.Dock="Top"
+                   TextWrapping="Wrap"
+                   Margin="0,0,0,4"
+                   Text="Scratchpad Lite did not close properly last time. These documents were saved for recovery." />
+
+        <TextBlock DockPanel.Dock="Top"
+                   TextWrapping="Wrap"
+                   Opacity="0.75"
+                   Margin="0,0,0,12"
+                   Text="Restoring one opens it as an unsaved tab. Your original files have not been changed." />
+
+        <StackPanel DockPanel.Dock="Bottom"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Margin="0,14,0,0">
+
+            <Button x:Name="RestoreButton"
+                    Content="Restore"
+                    MinWidth="96"
+                    Margin="0,0,8,0"
+                    IsDefault="True"
+                    Click="OnRestore" />
+
+            <Button Content="Restore All"
+                    MinWidth="96"
+                    Margin="0,0,8,0"
+                    Click="OnRestoreAll" />
+
+            <Button Content="Discard"
+                    MinWidth="96"
+                    Margin="0,0,8,0"
+                    Click="OnDiscard" />
+
+            <Button Content="Later"
+                    MinWidth="80"
+                    IsCancel="True"
+                    ToolTip="Leave them where they are and ask again next time."
+                    Click="OnLater" />
+        </StackPanel>
+
+        <Border BorderBrush="{DynamicResource BorderBrushSoft}"
+                BorderThickness="1"
+                Padding="8,6">
+
+            <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="320">
+                <ItemsControl x:Name="Items" />
+            </ScrollViewer>
+        </Border>
+    </DockPanel>
 </Window>

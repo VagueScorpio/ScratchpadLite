@@ -2,13 +2,213 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Preferences"
-        SizeToContent="WidthAndHeight"
+        Width="560"
+        Height="520"
+        MinWidth="480"
+        MinHeight="420"
         ResizeMode="CanResizeWithGrip"
         WindowStartupLocation="CenterOwner"
-        ShowInTaskbar="False">
+        ShowInTaskbar="False"
+        Background="{DynamicResource WindowBackground}"
+        Foreground="{DynamicResource WindowForeground}">
 
-    <!-- Phase 8. Shell only: the layout is built when that phase runs. -->
-    <TextBlock Margin="24" MaxWidth="460" TextWrapping="Wrap" Opacity="0.6"
-               Text="Preferences - built in Phase 8." />
+    <!-- Every setting in Section 6.2, grouped the way someone looking for one
+         would guess. A TabControl is right here and wrong for the editors
+         (Section 6.12): it rebuilds a page's content on every switch, which
+         costs a check box nothing and costs a RichTextBox its undo history.
 
+         The one setting with a visible switch elsewhere is AutoSave, which also
+         sits on the status bar because it writes the real file. -->
+
+    <DockPanel Margin="14">
+        <StackPanel DockPanel.Dock="Bottom"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Margin="0,14,0,0">
+
+            <Button Content="OK"
+                    MinWidth="90"
+                    Margin="0,0,8,0"
+                    IsDefault="True"
+                    Click="OnOk" />
+
+            <Button Content="Cancel"
+                    MinWidth="80"
+                    IsCancel="True" />
+        </StackPanel>
+
+        <TextBlock x:Name="Problem"
+                   DockPanel.Dock="Bottom"
+                   Foreground="#C00000"
+                   TextWrapping="Wrap"
+                   Visibility="Collapsed"
+                   Margin="0,10,0,0" />
+
+        <TabControl>
+            <TabItem Header="Appearance">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="14">
+                        <TextBlock Text="Theme" FontWeight="SemiBold" Margin="0,0,0,6" />
+                        <RadioButton x:Name="ThemeLight" GroupName="Theme" Content="Light" Margin="0,0,0,4" />
+                        <RadioButton x:Name="ThemeDark" GroupName="Theme" Content="Dark" Margin="0,0,0,4" />
+                        <RadioButton x:Name="ThemeFollow" GroupName="Theme" Content="Follow Windows" Margin="0,0,0,12" />
+
+                        <CheckBox x:Name="DarkPaperBox"
+                                  Content="Dark paper"
+                                  ToolTip="The page itself goes dark, not just the window around it."
+                                  Margin="0,0,0,14" />
+
+                        <TextBlock Text="Page" FontWeight="SemiBold" Margin="0,0,0,6" />
+                        <RadioButton x:Name="PageWidthButton" GroupName="PageView" Content="Show a page, like paper" Margin="0,0,0,4" />
+                        <RadioButton x:Name="FullWidthButton" GroupName="PageView" Content="Fill the window" Margin="0,0,0,14" />
+
+                        <TextBlock Text="Show" FontWeight="SemiBold" Margin="0,0,0,6" />
+                        <CheckBox x:Name="StatusBarBox" Content="Status bar" Margin="0,0,0,4" />
+                        <CheckBox x:Name="Toolbar1Box" Content="Formatting row 1" Margin="0,0,0,4" />
+                        <CheckBox x:Name="Toolbar2Box" Content="Formatting row 2" Margin="0,0,0,4" />
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Typing">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="14">
+                        <TextBlock Text="New documents start with" FontWeight="SemiBold" Margin="0,0,0,8" />
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Font"
+                                       VerticalAlignment="Center" Margin="0,0,10,8" />
+                            <ComboBox x:Name="FontBox" Grid.Row="0" Grid.Column="1"
+                                      IsEditable="True" Margin="0,0,0,8" />
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Size"
+                                       VerticalAlignment="Center" Margin="0,0,10,8" />
+                            <ComboBox x:Name="SizeBox" Grid.Row="1" Grid.Column="1"
+                                      IsEditable="True" Margin="0,0,0,8" />
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Style"
+                                       VerticalAlignment="Center" Margin="0,0,10,0" />
+                            <ComboBox x:Name="StyleBox" Grid.Row="2" Grid.Column="1" />
+                        </Grid>
+
+                        <CheckBox x:Name="PreviewFontsBox"
+                                  Content="Draw each font name in its own font"
+                                  ToolTip="Off is faster to open on a PC with hundreds of fonts."
+                                  Margin="0,0,0,4" />
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Spelling">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="14">
+                        <CheckBox x:Name="SpellCheckBox" Content="Check spelling as I type" Margin="0,0,0,12" />
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0" Text="Language"
+                                       VerticalAlignment="Center" Margin="0,0,10,0" />
+                            <ComboBox x:Name="LanguageBox" Grid.Column="1" />
+                        </Grid>
+
+                        <TextBlock Text="Long documents" FontWeight="SemiBold" Margin="0,0,0,6" />
+                        <TextBlock TextWrapping="Wrap" Opacity="0.75" Margin="0,0,0,8"
+                                   Text="Spell check was measured at 300 pages and costs nothing per keystroke, so this is off. Set a number of characters here if you want it to stop checking above a size." />
+
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Stop above" VerticalAlignment="Center" Margin="0,0,10,0" />
+                            <TextBox x:Name="SpellLimitBox" Width="110" MaxLength="9" />
+                            <TextBlock Text="characters (0 = no limit)" VerticalAlignment="Center" Margin="10,0,0,0" Opacity="0.75" />
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Saving">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="14">
+                        <TextBlock Text="Crash recovery" FontWeight="SemiBold" Margin="0,0,0,6" />
+                        <TextBlock TextWrapping="Wrap" Opacity="0.75" Margin="0,0,0,8"
+                                   Text="Always on. It keeps a copy of every open document, including untitled ones, and never touches your own files." />
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                            <TextBlock Text="Keep a copy every" VerticalAlignment="Center" Margin="0,0,10,0" />
+                            <TextBox x:Name="RecoveryIntervalBox" Width="70" MaxLength="5" />
+                            <TextBlock Text="seconds" VerticalAlignment="Center" Margin="10,0,0,0" Opacity="0.75" />
+                        </StackPanel>
+
+                        <TextBlock Text="AutoSave" FontWeight="SemiBold" Margin="0,0,0,6" />
+                        <TextBlock TextWrapping="Wrap" Opacity="0.75" Margin="0,0,0,8"
+                                   Text="AutoSave writes your own file. It is a different thing from crash recovery, and it is off until you turn it on." />
+
+                        <CheckBox x:Name="AutoSaveBox" Content="Save my documents for me" Margin="0,0,0,8" />
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="Check every" VerticalAlignment="Center" Margin="0,0,10,0" />
+                            <TextBox x:Name="AutoSaveIntervalBox" Width="70" MaxLength="5" />
+                            <TextBlock Text="seconds" VerticalAlignment="Center" Margin="10,0,0,0" Opacity="0.75" />
+                        </StackPanel>
+
+                        <CheckBox x:Name="AutoSaveOnFocusLossBox"
+                                  Content="Also AutoSave when I switch away from the app"
+                                  Margin="0,0,0,16" />
+
+                        <TextBlock Text="Backups" FontWeight="SemiBold" Margin="0,0,0,6" />
+                        <CheckBox x:Name="KeepBakBox"
+                                  Content="Keep the previous version as a .bak file"
+                                  ToolTip="With AutoSave on, the .bak is the version from when you opened the file, written once per session."
+                                  Margin="0,0,0,4" />
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Files">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="14">
+                        <CheckBox x:Name="RestoreSessionBox"
+                                  Content="Reopen the documents I had open last time"
+                                  Margin="0,0,0,12" />
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                            <TextBlock Text="Remember" VerticalAlignment="Center" Margin="0,0,10,0" />
+                            <TextBox x:Name="RecentCountBox" Width="56" MaxLength="3" />
+                            <TextBlock Text="recent files" VerticalAlignment="Center" Margin="10,0,0,0" Opacity="0.75" />
+                        </StackPanel>
+
+                        <CheckBox x:Name="SingleInstanceBox"
+                                  Content="One window for everything"
+                                  ToolTip="Opening a file sends it to the window that is already open instead of starting another copy."
+                                  Margin="0,0,0,16" />
+
+                        <TextBlock Text="Plain text" FontWeight="SemiBold" Margin="0,0,0,6" />
+                        <CheckBox x:Name="TxtBomBox"
+                                  Content="Write a byte-order mark in .txt files"
+                                  ToolTip="Off suits most tools. On helps older Windows programs read UTF-8."
+                                  Margin="0,0,0,16" />
+
+                        <TextBlock Text="Limits" FontWeight="SemiBold" Margin="0,0,0,6" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Refuse to open files over" VerticalAlignment="Center" Margin="0,0,10,0" />
+                            <TextBox x:Name="MaxOpenMbBox" Width="70" MaxLength="6" />
+                            <TextBlock Text="MB" VerticalAlignment="Center" Margin="10,0,0,0" Opacity="0.75" />
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
 </Window>

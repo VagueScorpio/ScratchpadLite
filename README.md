@@ -5,16 +5,20 @@ no .NET runtime, no Office, nothing else needed on the PC.
 
 Windows 10 (version 1809 or later) and Windows 11, x64.
 
-> **Status: Phase 7 — tabs, find and replace, spell check.**
-> Several documents are open at once in real tabs, each keeping its own undo
-> history across a switch. Ctrl+F and Ctrl+H open a find bar with match case,
-> whole word, regular expressions and a search across every open tab; Replace
-> All is one undo. Spell check uses the Windows checker, with suggestions in
-> the right-click menu, a custom dictionary, and the language list taken from
-> Windows itself. `.docx`, `.odt`, `.rtf`, `.md` and `.txt` all open and save,
-> and the [fidelity matrix](USER_GUIDE.md#what-survives-each-format) is
-> measured rather than promised. AutoSave, crash recovery and printing are
-> still ahead — [Build Phases](#build-phases) tracks what lands when.
+> **Status: Phase 8 — recovery, AutoSave, print, single instance.**
+> Crash recovery is always on and keeps a copy of every open document,
+> untitled ones included, without ever touching your own files; if a run does
+> not finish, the next launch offers the work back. AutoSave is a separate
+> thing, with a switch on the status bar, off until you turn it on, and it
+> declines rather than guessing when a save would lose formatting or overwrite
+> a file something else changed. Ctrl+P prints, Export as PDF goes through the
+> printer Windows ships with, and both come out in one column. Opening a file
+> while a window is already open sends it to that window. Preferences has
+> every setting in one place. `.docx`, `.odt`, `.rtf`, `.md` and `.txt` all
+> open and save, and the
+> [fidelity matrix](USER_GUIDE.md#what-survives-each-format) is measured
+> rather than promised. What is left is the release pass —
+> [Build Phases](#build-phases) tracks it.
 
 ## What it will do
 
@@ -173,7 +177,7 @@ so compression buys nothing a user would notice and costs something they would.
 | 5 | v1.5 | Markdown, ODT, RTF — **done** |
 | 6 | v1.6 | Lists, tables, images, links — **done** |
 | 7 | v1.7 | Tabs, find and replace, spell check — **done** |
-| 8 | v1.8 | Recovery, AutoSave, themes, print, single instance |
+| 8 | v1.8 | Recovery, AutoSave, themes, print, single instance, Preferences — **done** |
 | 9 | v1.9 | Release: clean-PC test, documents, full QA |
 | 10 | v1.10 | Optional: embed fonts in saved documents |
 

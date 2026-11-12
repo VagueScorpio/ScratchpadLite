@@ -67,6 +67,22 @@ public partial class MainWindow : Window
 
         FormatToolbars.LoadStyles(_styles);
         FormatToolbars.PreviewFontNamesInOwnFont = _settings.PreviewFontNamesInOwnFont;
+        FormatToolbars.ShowRow1 = _settings.ShowToolbarRow1;
+        FormatToolbars.ShowRow2 = _settings.ShowToolbarRow2;
+
+        ToolbarRow1Item.Click += (_, _) =>
+        {
+            Apply(_settings with { ShowToolbarRow1 = !_settings.ShowToolbarRow1 });
+            FormatToolbars.ShowRow1 = _settings.ShowToolbarRow1;
+            SyncViewMenu();
+        };
+
+        ToolbarRow2Item.Click += (_, _) =>
+        {
+            Apply(_settings with { ShowToolbarRow2 = !_settings.ShowToolbarRow2 });
+            FormatToolbars.ShowRow2 = _settings.ShowToolbarRow2;
+            SyncViewMenu();
+        };
 
         BindCommands();
         BuildParagraphStyleMenu();
@@ -77,6 +93,8 @@ public partial class MainWindow : Window
         _tabs.Activate(_tabs.Add());
 
         Status.ZoomChanged += (_, zoom) => Editor.Zoom = zoom;
+        Status.AutoSaveToggled += (_, on) => SetAutoSave(on);
+        AutoSaveMenuItem.Click += (_, _) => ToggleAutoSave();
         Status.ShowZoomWithoutRaising(_settings.Zoom);
         Status.ShowLanguage(_settings.SpellCheckLanguage);
         Status.Visibility = _settings.ShowStatusBar ? Visibility.Visible : Visibility.Collapsed;
@@ -400,6 +418,14 @@ public partial class MainWindow : Window
             },
             () => LinkSupport.LinkAt(Rtb) is not null);
 
+        // ---- Printing and the session: Sections 6.13 to 6.17 ----
+        Bind(Commands.PageSetup, _ => ShowPageSetup());
+        Bind(Commands.Print, _ => PrintDocument());
+        Bind(Commands.ExportPdf, _ => ExportPdf());
+        Bind(Commands.ToggleAutoSave, _ => ToggleAutoSave());
+        Bind(Commands.RecoverDocuments, _ => OfferLeftovers());
+        Bind(Commands.Preferences, _ => ShowPreferences());
+
         // ---- Tools ----
         Bind(Commands.ToggleSpellCheck, _ => ToggleSpellCheck());
         Bind(Commands.EditUserDictionary, _ => EditUserDictionary());
@@ -421,7 +447,7 @@ public partial class MainWindow : Window
         {
             if (Parse<ThemeChoice>(p) is { } choice)
             {
-                _settings = _settings with { Theme = choice };
+                Apply(_settings with { Theme = choice });
                 ThemeManager.Apply(choice);
                 SyncViewMenu();
             }
@@ -432,7 +458,7 @@ public partial class MainWindow : Window
         // half-dark set of tabs would just look like a bug.
         Bind(Commands.ToggleDarkPaper, _ =>
         {
-            _settings = _settings with { DarkPaper = !_settings.DarkPaper };
+            Apply(_settings with { DarkPaper = !_settings.DarkPaper });
 
             foreach (var view in LiveViews())
             {
@@ -446,7 +472,7 @@ public partial class MainWindow : Window
         {
             if (Parse<PageViewMode>(p) is { } mode)
             {
-                _settings = _settings with { PageView = mode };
+                Apply(_settings with { PageView = mode });
 
                 foreach (var view in LiveViews())
                 {
@@ -474,7 +500,7 @@ public partial class MainWindow : Window
 
         Bind(Commands.ToggleStatusBar, _ =>
         {
-            _settings = _settings with { ShowStatusBar = !_settings.ShowStatusBar };
+            Apply(_settings with { ShowStatusBar = !_settings.ShowStatusBar });
             Status.Visibility = _settings.ShowStatusBar ? Visibility.Visible : Visibility.Collapsed;
         });
 
@@ -635,8 +661,28 @@ public partial class MainWindow : Window
         StartSpellCheck();
 
         // Files named on the command line or dragged onto the .exe, and
-        // otherwise the last session's (Section 6.12).
-        _ = OpenStartupFilesAsync();
+        // otherwise the last session's (Section 6.12). Awaited before the
+        // session services start, so the recovery dialog does not open over a
+        // window that is still filling its tabs.
+        _ = StartUpTheRestAsync();
+    }
+
+    /// <summary>
+    /// The last of Section 4.3: open what was asked for, then start the
+    /// recovery timer, AutoSave and the single-instance listener.
+    /// </summary>
+    private async Task StartUpTheRestAsync()
+    {
+        try
+        {
+            await OpenStartupFilesAsync().ConfigureAwait(true);
+        }
+        finally
+        {
+            // In a finally, because a file that failed to open is no reason to
+            // leave the application without crash recovery.
+            StartSessionServices();
+        }
     }
 
     private void OnFontsChanged(object? sender, EventArgs e)
@@ -955,6 +1001,8 @@ public partial class MainWindow : Window
         PageWidthItem.IsChecked = _settings.PageView == PageViewMode.PageWidth;
         FullWidthItem.IsChecked = _settings.PageView == PageViewMode.FullWidth;
         StatusBarItemToggle.IsChecked = _settings.ShowStatusBar;
+        ToolbarRow1Item.IsChecked = _settings.ShowToolbarRow1;
+        ToolbarRow2Item.IsChecked = _settings.ShowToolbarRow2;
     }
 
     private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
@@ -1005,6 +1053,11 @@ public partial class MainWindow : Window
         {
             PasteFilter.Detach(view.Editor);
         }
+
+        // Last, and only on a close that got this far: the recovery folder is
+        // deleted here, and a run that ended any other way leaves it for the
+        // next launch to find (Section 6.13.1).
+        EndSessionCleanly();
     }
 
     /// <summary>

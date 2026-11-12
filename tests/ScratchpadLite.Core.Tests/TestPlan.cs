@@ -35,6 +35,16 @@ namespace ScratchpadLite.Core.Tests;
 ///   <item>SpellCheckTests: the .lex file's header and encoding, adding words, the languages Windows reports, Code paragraphs marked as having no linguistic content, and the size above which checking is left off.</item>
 /// </list>
 ///
+/// Phase 8 - recovery, AutoSave, printing, single instance, Preferences
+/// <list type="bullet">
+///   <item>RecoveryTests: the lock cannot be opened while a run holds it and can be once that run is gone, proved against a real process that is killed; this run's own folder is never offered back; an untitled document is included; a damaged file is skipped without hiding a good one beside it; an abandoned folder with nothing in it is tidied away.</item>
+///   <item>IrJsonTests (Core): the IR survives a JSON round trip, which nothing had ever asked it to do before - the font list could not be deserialized at all.</item>
+///   <item>AutoSaveTests: off by default; each Section 6.13.2 skip rule - never saved, would lose formatting, read-only, changed on disk - with the cases that are fine beside each one; the idle pause, the longer pause for a document whose walk is slow, and the reason reported once rather than every tick.</item>
+///   <item>PrintingTests: the phase gate. A laid-out page's glyph origins all fall in the left half of the sheet, which is the only way to tell one column from two; a control test shows WPF really does use columns when a column width is set; the copy carries formatting and pictures and leaves the document on screen untouched.</item>
+///   <item>SingleInstanceTests: the names are stable per installation and per user; a second claim fails and a release lets the next one through; files really cross the pipe, a relative path arrives absolute, and a hand-off with nobody listening gives up in about three seconds.</item>
+///   <item>PhaseEightDialogTests: Preferences gives back exactly what it was given, clamps an interval and refuses a word; Page Setup shows inches and stores points; the recovery dialog's Restore with nothing ticked means Later rather than Discard.</item>
+/// </list>
+///
 /// Phase 2 - fonts
 /// <list type="bullet">
 ///   <item>FontScannerTests: every type is sorted correctly by magic bytes even when the extension lies; oversize files are skipped.</item>

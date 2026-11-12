@@ -273,22 +273,74 @@ new content is safely on disk. A save that gets interrupted therefore cannot
 leave you with half a file. If **Keep .bak** is on, the previous version is kept
 beside it.
 
-## AutoSave and crash recovery **(not yet — Phase 8)**
+## AutoSave and crash recovery
 
 These are two different things, and the difference matters.
 
-**Crash recovery is always on.** Every so often the app writes a private copy of
-each open document into `data/recovery/`. It never touches your real file. Close
-the app normally and the copies are deleted. If the app is killed or the PC
-loses power, the next launch finds them and offers your work back.
+Think of recovery as a security camera that keeps the last few minutes of tape.
+It never touches your real file; it only keeps a copy in case the power goes
+out. AutoSave is an assistant who presses Save for you every couple of minutes.
+It does touch your real file.
 
-**AutoSave writes your real file, and starts off.** Turn it on from the status
-bar or in Preferences. When it is on, it saves a document that already has a
-file name and has unsaved changes, in the format it was opened as. It leaves
-alone anything where saving would be a surprise: a document you have never saved,
-a format that would lose formatting, a read-only file, or a file that changed on
-disk behind your back. Hovering the indicator explains why a document was
-skipped.
+### Crash recovery — always on
+
+Every two minutes, a private copy of each open document goes into
+`data/recovery/`. Untitled documents are included, which is the point: AutoSave
+can do nothing for a document with no file name, and that is exactly the
+document whose loss hurts most.
+
+Close the app normally and the copies are deleted. If the app is killed, crashes
+or the PC loses power, they stay — and the next launch shows **Recover
+Documents**, listing what was found with where it came from and when it was
+saved. You can restore the ones you tick, restore all of them, throw them away,
+or press **Later** and be asked again next time.
+
+A restored document opens as an **unsaved tab**, with a dot on the tab and a
+star in the title. Your original file has not been changed. Nothing is written
+over it until you save it yourself.
+
+You can also open the dialog yourself from **File → Recover Documents** if you
+pressed Later and changed your mind.
+
+The interval is in Preferences, under Saving. The shortest is 15 seconds.
+
+### AutoSave — writes your real file, and starts off
+
+Turn it on with the **AutoSave: Off** switch at the left of the status bar, from
+**File → AutoSave**, or in Preferences. It is one setting for the whole app and
+it is remembered.
+
+When it is on it checks every two minutes and saves any document that has a file
+name and unsaved changes, in the format it was opened as, through the same safe
+save a manual Save uses. A save only happens once you have stopped typing for a
+couple of seconds, so it never lands mid-word. Afterwards the status bar shows
+**Saved 10:42** for a moment and the tab's dot clears. Your undo history is not
+affected — saving never clears it.
+
+It leaves alone anything where saving would be a surprise, and says which in the
+status bar once rather than on every check:
+
+- **A document you have never saved.** There is no file to save to, and
+  inventing a name is not AutoSave's business. Save it once and AutoSave takes
+  over from there.
+- **A format that would lose something this document uses** — a picture in a
+  `.txt`, a text colour in a `.md`. AutoSave never shows the Save Warning
+  dialog; it just does not write.
+- **A read-only file**, or one another program is holding.
+- **A file that changed on disk** since you opened it. Saving would throw away
+  somebody else's work, so you are left to decide which version wins.
+
+Every one of those still gets its recovery copies, so nothing is unprotected —
+it is just not being written to your own file.
+
+**"Also AutoSave when I switch away from the app"** (Preferences → Saving, on by
+default) saves when the window loses focus, which is usually the moment you were
+about to want it.
+
+**The `.bak` file with AutoSave on.** Normally Keep `.bak` keeps the previous
+version beside each save. With AutoSave on, that would mean a backup of the
+state two minutes ago, which is worth nothing — so the `.bak` is written once
+per session, from the version as you opened it.
 
 ## Finding, spelling, counting
 
@@ -385,11 +437,65 @@ the status bar, or Ctrl and the mouse wheel. Ctrl+0 resets it.
 space dots inside its rich text control without a custom overlay, so the menu
 item is there and disabled rather than pretending.
 
-## Printing and PDF **(not yet — Phase 8)**
+## Printing and PDF
 
-**Print** (Ctrl+P) paginates for the paper size and margins in **Page Setup**.
-**Export as PDF** goes through the Microsoft Print to PDF printer built into
-Windows, so there is nothing extra to install.
+**Page Setup** (File menu) sets the paper — Letter, Legal, A4 or A5 —
+the orientation, and the four margins in inches. These belong to the document
+rather than to the app, and `.docx` and `.odt` both store them, so the same file
+prints the same way on another PC. Changing them counts as an edit, so the
+document will offer to save.
+
+**Print** (Ctrl+P, or the printer button on the toolbar) opens the normal
+Windows print dialog and prints a copy laid out for your printer's paper and
+your margins. The document on your screen is not disturbed: it is not reflowed
+and then put back, so your scroll position, your selection and your undo
+history are all where you left them.
+
+**Export as PDF** prints the same copy to **Microsoft Print to PDF**, the
+printer that ships with Windows 10 and 11, and Windows asks where to put the
+file. There is nothing extra to install. If that printer has been removed —
+it can be switched off in Windows Features — the app says so and tells you how
+to switch it back on; you can also use **Print** and pick any PDF printer you
+have.
+
+Both come out in one column of text per page, which sounds obvious and is the
+single easiest thing to get wrong with the rich text control this is built on.
+
+## Preferences
+
+**Tools → Preferences** has every setting in one place, in five tabs:
+
+| Tab | What is in it |
+| --- | --- |
+| Appearance | theme, dark paper, page or full width, which bars to show |
+| Typing | the font, size and paragraph style new documents start with |
+| Spelling | spell check on or off, the language, and the long-document limit |
+| Saving | the recovery interval, AutoSave and its interval, Keep `.bak` |
+| Files | reopen last session, recent files, one window, `.txt` byte-order mark, the size above which a file is refused |
+
+Settings are written half a second after you change something, and again when
+you exit, so a crash does not cost you your preferences.
+
+A few of these have a second home where you are more likely to want them: the
+theme and the view settings are in the **View** menu, and AutoSave is on the
+status bar.
+
+## One window, or several
+
+By default, opening a document while Scratchpad Lite is already running sends it
+to the window that is already open — a new tab there, and that window comes to
+the front. Dropping four files on the `.exe` opens four tabs in one window.
+
+Turn **One window for everything** off in Preferences → Files if you would
+rather each launch be its own window.
+
+Two copies in two different folders — one on a USB stick and one in your
+Documents, say — are always separate applications and never hand files to each
+other.
+
+Nothing about this is written to the Windows registry. To make Scratchpad Lite
+the program that opens `.docx` files, use Windows' own **Open with → Choose
+another app**.
 
 ## Keyboard shortcuts
 
@@ -480,4 +586,18 @@ it took, and exits. It is there for the build script.
     built for book-length files. Measured: a keystroke settles in about 3 ms at
     20 pages, 6 ms at 100, 19 ms at 300 and 90 ms at 600. Spell check is not
     the cause — the same numbers come out with it off.
-16. **The `.exe` is not signed,** so SmartScreen warns on first run.
+16. **PDF export cannot be given a file name.** It prints to Microsoft Print to
+    PDF, and that printer shows Windows' own Save As dialog — there is no way to
+    pass a path through to it, so the app lets Windows ask rather than asking
+    you twice.
+17. **AutoSave will not save a document you have never saved.** Save it once
+    and AutoSave looks after it from then on. Crash recovery covers it in the
+    meantime.
+18. **A recovered document is not your file.** Restoring from the Recover
+    Documents dialog opens the work as an unsaved tab; you decide whether it
+    replaces what is on disk.
+19. **Two menu items are not built yet:** Format → Paragraph (and Line Spacing
+    → Custom), and Insert → Special Character. They are there and disabled
+    rather than missing. Line spacing is available from its own submenu, and
+    indents from the Format menu.
+20. **The `.exe` is not signed,** so SmartScreen warns on first run.

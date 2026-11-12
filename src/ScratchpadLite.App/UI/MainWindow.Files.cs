@@ -252,7 +252,23 @@ public partial class MainWindow
     /// Saves: walk on the UI thread, warn if the format would lose something,
     /// write in the background (Section 4.4).
     /// </summary>
-    private async Task<bool> SaveAsync(DocumentSession session, bool saveAs)
+    /// <param name="session">The document to save.</param>
+    /// <param name="saveAs">Ask for a name even when the document has one.</param>
+    /// <param name="fromAutoSave">
+    /// True when AutoSave asked for this (Section 6.13.2).
+    /// </param>
+    /// <remarks>
+    /// AutoSave comes through here rather than having a save of its own, so
+    /// there is one atomic write, one lossy-format rule and one changed-on-disk
+    /// rule in the application. What the flag changes is only the asking: an
+    /// AutoSave never opens a dialog, because a dialog from a timer is a dialog
+    /// that appears while the user is typing in another program. The three
+    /// questions it would have asked were all answered before it was called -
+    /// <c>AutoSave.Check</c> declines a document that would lose formatting,
+    /// one that is read-only and one that changed on disk - which is why
+    /// skipping the dialogs here is not skipping the checks.
+    /// </remarks>
+    private async Task<bool> SaveAsync(DocumentSession session, bool saveAs, bool fromAutoSave = false)
     {
         if (_busy)
         {
@@ -264,6 +280,11 @@ public partial class MainWindow
 
         if (saveAs || path is null)
         {
+            if (fromAutoSave)
+            {
+                return false;           // never asks; AutoSave.Check said so too
+            }
+
             path = AskWhereToSave(session, path);
 
             if (path is null)
@@ -274,21 +295,29 @@ public partial class MainWindow
 
         var document = DocumentIo.ToIr(view.Editor.Document, session, _styles);
 
-        // The lossy-format check (Section 7.1), on what this document actually
-        // uses rather than on the format in general.
-        var decided = ConfirmLossyFormat(document, path);
-
-        if (decided is null)
+        if (!fromAutoSave)
         {
-            return false;
+            // The lossy-format check (Section 7.1), on what this document
+            // actually uses rather than on the format in general.
+            var decided = ConfirmLossyFormat(document, path);
+
+            if (decided is null)
+            {
+                return false;
+            }
+
+            path = decided;
+
+            if (!ConfirmOverwriteIfChangedOnDisk(session, path))
+            {
+                return false;
+            }
         }
 
-        path = decided;
-
-        if (!ConfirmOverwriteIfChangedOnDisk(session, path))
-        {
-            return false;
-        }
+        // Section 6.13.2: with AutoSave on, the .bak is the version from when
+        // the file was opened, written once. A backup per AutoSave would be a
+        // backup of the state two minutes ago, which is worth nothing.
+        var keepBak = _settings.KeepBakFile && !(_settings.AutoSaveEnabled && session.BakWritten);
 
         _busy = true;
 
@@ -298,12 +327,12 @@ public partial class MainWindow
 
             if (IsRtf(path))
             {
-                WriteRtf(view, path);
+                WriteRtf(view, path, keepBak);
             }
             else
             {
                 await DocumentIo
-                    .WriteAsync(document, path, _styles, _settings.KeepBakFile, CancellationToken.None)
+                    .WriteAsync(document, path, _styles, keepBak, CancellationToken.None)
                     .ConfigureAwait(true);
             }
 
@@ -311,6 +340,7 @@ public partial class MainWindow
             session.LastSavedIr = document;
             session.OpenedStamp = FileOps.Stamp.Of(path);
             session.IsDirty = false;
+            session.BakWritten = true;
             session.FormatName = FormatRegistry.InfoFor(Path.GetExtension(path))?.Name ?? "TXT";
 
             UpdateTitle();
@@ -322,14 +352,17 @@ public partial class MainWindow
                 Status.ShowFormat(session.FormatName);
             }
 
-            Status.ShowMessage($"Saved {Path.GetFileName(path)}.");
+            if (!fromAutoSave)
+            {
+                Status.ShowMessage($"Saved {Path.GetFileName(path)}.");
+            }
 
             return true;
         }
         catch (FileOps.SaveException ex)
         {
             Status.ShowMessage(ex.Message, transient: false);
-            MessageBox.Show(this, ex.Message, "Save", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Complain(ex.Message, fromAutoSave);
         }
         catch (Exception ex)
         {
@@ -338,7 +371,7 @@ public partial class MainWindow
             var message = $"{Path.GetFileName(path)} could not be saved.";
 
             Status.ShowMessage(message, transient: false);
-            MessageBox.Show(this, message, "Save", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Complain(message, fromAutoSave);
         }
         finally
         {
@@ -397,14 +430,30 @@ public partial class MainWindow
             stamp);
     }
 
-    private void WriteRtf(Editor.EditorView view, string path)
+    private void WriteRtf(Editor.EditorView view, string path, bool keepBak)
     {
         var rtf = new Formats.RtfFormat(_styles);
 
         FileOps.AtomicWrite(
             path,
             stream => rtf.Save(view.Editor.Document, stream),
-            _settings.KeepBakFile);
+            keepBak);
+    }
+
+    /// <summary>
+    /// Says what went wrong, in a dialog for a save the user asked for and only
+    /// in the status bar for one a timer asked for (Section 6.13.2).
+    /// </summary>
+    private void Complain(string message, bool fromAutoSave)
+    {
+        if (fromAutoSave)
+        {
+            Log.Warn($"AutoSave: {message}");
+
+            return;
+        }
+
+        MessageBox.Show(this, message, "Save", MessageBoxButton.OK, MessageBoxImage.Warning);
     }
 
     private string? AskWhereToSave(DocumentSession session, string? current)
@@ -620,6 +669,13 @@ public partial class MainWindow
 
     private void OnDocumentEdited(DocumentSession session)
     {
+        // Both of these happen on every edit, not only on the first one. The
+        // recovery flag says the copy on disk is out of date (Section 6.13.1)
+        // and the typing clock is what keeps AutoSave from landing mid-word
+        // (Section 6.13.2), and neither is answered by "it was already dirty".
+        session.EditedSinceRecoveryWrite = true;
+        _autoSave.NoteTyping();
+
         if (session.IsDirty)
         {
             return;

@@ -27,13 +27,14 @@
                 <MenuItem Header="Save" Command="{x:Static ui:Commands.Save}" />
                 <MenuItem Header="Save As..." Command="{x:Static ui:Commands.SaveAs}" />
                 <MenuItem Header="Save All" Command="{x:Static ui:Commands.SaveAll}" />
-                <MenuItem x:Name="AutoSaveMenuItem" Header="AutoSave" IsCheckable="True" IsEnabled="False" />
+                <MenuItem x:Name="AutoSaveMenuItem" Header="AutoSave" IsCheckable="True"
+                          ToolTip="AutoSave writes your own file. Crash recovery is always on and is separate." />
                 <Separator />
                 <MenuItem Header="Close Tab" Command="{x:Static ui:Commands.CloseTab}" InputGestureText="Ctrl+W" />
-                <MenuItem Header="Page Setup..." Command="{x:Static ui:Commands.PageSetup}" IsEnabled="False" />
-                <MenuItem Header="Print..." Command="{x:Static ui:Commands.Print}" IsEnabled="False" />
-                <MenuItem Header="Export as PDF..." Command="{x:Static ui:Commands.ExportPdf}" IsEnabled="False" />
-                <MenuItem Header="Recover Documents..." Command="{x:Static ui:Commands.RecoverDocuments}" IsEnabled="False" />
+                <MenuItem Header="Page Setup..." Command="{x:Static ui:Commands.PageSetup}" />
+                <MenuItem Header="Print..." Command="{x:Static ui:Commands.Print}" InputGestureText="Ctrl+P" />
+                <MenuItem Header="Export as PDF..." Command="{x:Static ui:Commands.ExportPdf}" />
+                <MenuItem Header="Recover Documents..." Command="{x:Static ui:Commands.RecoverDocuments}" />
                 <Separator />
                 <MenuItem Header="Exit" Command="{x:Static ui:Commands.Exit}" />
             </MenuItem>
@@ -153,7 +154,7 @@
                 <MenuItem Header="Reload Fonts" Command="{x:Static ui:Commands.ReloadFonts}" />
                 <MenuItem Header="Open Font Folder" Command="{x:Static ui:Commands.OpenFontFolder}" />
                 <Separator />
-                <MenuItem Header="Preferences..." Command="{x:Static ui:Commands.Preferences}" IsEnabled="False" />
+                <MenuItem Header="Preferences..." Command="{x:Static ui:Commands.Preferences}" />
             </MenuItem>
 
             <MenuItem Header="_View">

@@ -34,15 +34,11 @@ public partial class App : Application
         // ---- Before the first frame. Keep this list short. ----
         _options = CommandLineOptions.Parse(e.Args);
 
-        // 1. Single instance: hand the files to the running copy and leave.
-        //    Phase 0 implements SingleInstance; until then one window per launch.
-        //
-        //    if (!SingleInstance.Claim())
-        //    {
-        //        SingleInstance.ForwardFiles(_options.Files);
-        //        Shutdown();
-        //        return;
-        //    }
+        // 1. Single instance (Section 6.15). One mutex, which is all the
+        //    startup path can afford: whether to act on the answer needs the
+        //    settings, and the settings need the paths, so the claim happens
+        //    here and the decision at step 4a.
+        var isFirstCopy = SingleInstance.Claim();
 
         // 2. Paths, including the --fonts override for development and tests.
         if (_options.FontDirOverride is { } fontDir)
@@ -69,6 +65,25 @@ public partial class App : Application
 
         // 4. Settings.
         _settings = Settings.Load(AppPaths.SettingsFile);
+
+        // 4a. Hand the files to the running copy and leave (Section 6.15).
+        //     --measure-startup is exempt: build.ps1 runs five launches in a
+        //     row and the second one forwarding to the first would measure
+        //     nothing at all.
+        if (!isFirstCopy && _settings.SingleInstance && !_options.MeasureStartup)
+        {
+            if (SingleInstance.ForwardFiles(_options.Files))
+            {
+                Shutdown();
+
+                return;
+            }
+
+            // The running copy could not be reached in three seconds - it may
+            // be starting, or stuck. A window of our own is better than a
+            // launch that appears to do nothing at all.
+            Log.Warn("another copy is running but did not answer, so this one is showing its own window");
+        }
 
         // 5. Theme. One merged dictionary, so this loads the theme in use and
         //    nothing else (Section 6.16).
@@ -178,22 +193,76 @@ public partial class App : Application
     private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
         Log.Error("unhandled exception on the UI thread", e.Exception);
+
+        SaveEverythingForRecovery();
+
         MessageBox.Show(
-            "Scratchpad Lite ran into a problem and has to close. Your open documents were saved for recovery and will be offered the next time you start it.",
+            "Scratchpad Lite ran into a problem and has to close. Your open documents were saved for "
+            + $"recovery and will be offered the next time you start it.\n\nThe log is at {Log.FilePath}.",
             "Scratchpad Lite",
             MessageBoxButton.OK,
             MessageBoxImage.Error);
         e.Handled = false;
     }
 
-    private void OnDomainUnhandledException(object sender, UnhandledExceptionEventArgs e) =>
+    private void OnDomainUnhandledException(object sender, UnhandledExceptionEventArgs e)
+    {
         Log.Error("unhandled exception", e.ExceptionObject as Exception);
+
+        SaveEverythingForRecovery();
+    }
 
     private void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
     {
         Log.Error("unobserved task exception", e.Exception);
         e.SetObserved();
+
+        // Not a crash: the task is dead, the window is fine, and the user's
+        // work is not in danger. Writing recovery copies here would mean a
+        // background hiccup walked every open document.
     }
+
+    /// <summary>
+    /// One last recovery write of every open document (Section 6.13.1).
+    /// </summary>
+    /// <remarks>
+    /// The window may be on another thread, mid-layout, or already gone, and
+    /// this is running while an exception is on its way up - so it marshals
+    /// with a timeout and swallows everything. A recovery write that threw
+    /// would replace the real exception in the log with its own and leave
+    /// nobody any the wiser about what actually went wrong.
+    /// </remarks>
+    private void SaveEverythingForRecovery()
+    {
+        if (_recoveryWritten || MainWindow is not UI.MainWindow window)
+        {
+            return;
+        }
+
+        _recoveryWritten = true;
+
+        try
+        {
+            if (window.Dispatcher.CheckAccess())
+            {
+                window.WriteRecoveryNow();
+            }
+            else
+            {
+                window.Dispatcher.Invoke(window.WriteRecoveryNow, TimeSpan.FromSeconds(5));
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warn($"the crash recovery write did not finish ({ex.GetType().Name})");
+        }
+    }
+
+    /// <summary>
+    /// Set once: a crash often raises two of the three handlers, and walking
+    /// every document twice while the process is dying is time it may not have.
+    /// </summary>
+    private bool _recoveryWritten;
 
     private const uint AttachParentProcess = 0xFFFFFFFF;
 
