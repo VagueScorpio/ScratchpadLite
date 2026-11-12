@@ -103,6 +103,14 @@ Deliberately not used
   free one that writes PDF directly would have added megabytes to the .exe to
   do what a printer Windows already has does for nothing.
 
+  Nothing was added in Phase 9, and nothing will be: this is the release. The
+  three features it builds are WPF and nothing else. The Paragraph dialog sets
+  properties the editor already had. The character grid asks each font for its
+  own character map through GlyphTypeface, which is part of WPF. The formatting
+  marks are drawn with DrawingContext onto an element of this project's own,
+  because no library can draw them - they depend on where this particular
+  editor laid this particular text out.
+
   WOFF, WOFF2, Type 1, .dfont, .eot and .t42 handling is hand-written, because
   no maintained free .NET library covers them. See the WOFF2 note above for
   what the implementation is based on.

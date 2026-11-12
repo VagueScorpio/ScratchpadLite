@@ -5,20 +5,16 @@ no .NET runtime, no Office, nothing else needed on the PC.
 
 Windows 10 (version 1809 or later) and Windows 11, x64.
 
-> **Status: Phase 8 — recovery, AutoSave, print, single instance.**
-> Crash recovery is always on and keeps a copy of every open document,
-> untitled ones included, without ever touching your own files; if a run does
-> not finish, the next launch offers the work back. AutoSave is a separate
-> thing, with a switch on the status bar, off until you turn it on, and it
-> declines rather than guessing when a save would lose formatting or overwrite
-> a file something else changed. Ctrl+P prints, Export as PDF goes through the
-> printer Windows ships with, and both come out in one column. Opening a file
-> while a window is already open sends it to that window. Preferences has
-> every setting in one place. `.docx`, `.odt`, `.rtf`, `.md` and `.txt` all
-> open and save, and the
-> [fidelity matrix](USER_GUIDE.md#what-survives-each-format) is measured
-> rather than promised. What is left is the release pass —
-> [Build Phases](#build-phases) tracks it.
+> **Status: v1.9, the release.** Every feature in the list below is built, and
+> every menu item in the program does something — the last three that were
+> still greyed out (Format → Paragraph, Insert → Special Character, View → Show
+> Formatting Marks) were built for this version. `.docx`, `.odt`, `.rtf`, `.md`
+> and `.txt` open and save, and the
+> [fidelity matrix](USER_GUIDE.md#what-survives-each-format) is measured rather
+> than promised. What cannot be done is written down in
+> [Known limitations](USER_GUIDE.md#known-limitations) with the reason.
+> [QA_CHECKLIST.md](QA_CHECKLIST.md) says what has been checked, how, and what
+> still needs a person and a screen.
 
 ## What it will do
 
@@ -69,7 +65,7 @@ powershell -ExecutionPolicy Bypass -File build\build.ps1
 
 That runs the tests, publishes a self-contained single-file `.exe`, copies in
 the font bundle and the documents, measures startup five times, zips the result
-and prints the sizes and the SHA-256.
+and the whole source tree, and prints the sizes and the SHA-256 of each zip.
 
 Useful switches:
 
@@ -178,7 +174,7 @@ so compression buys nothing a user would notice and costs something they would.
 | 6 | v1.6 | Lists, tables, images, links — **done** |
 | 7 | v1.7 | Tabs, find and replace, spell check — **done** |
 | 8 | v1.8 | Recovery, AutoSave, themes, print, single instance, Preferences — **done** |
-| 9 | v1.9 | Release: clean-PC test, documents, full QA |
+| 9 | v1.9 | Release: clean-PC test, documents, full QA — **done** |
 | 10 | v1.10 | Optional: embed fonts in saved documents |
 
 Each phase ends with tests passing, a version bump in `Directory.Build.props`, a
@@ -189,5 +185,7 @@ Each phase ends with tests passing, a version bump in `Directory.Build.props`, a
 - [USER_GUIDE.md](USER_GUIDE.md) — every feature, the `fonts/` folder, AutoSave
   versus recovery, what survives each file format, and the known limitations
 - [CHANGELOG.txt](CHANGELOG.txt) — every version, with what changed and why
+- [QA_CHECKLIST.md](QA_CHECKLIST.md) — the release checklist, what is checked by
+  a test and what needs a person
 - [THIRD_PARTY_LICENSES.txt](THIRD_PARTY_LICENSES.txt) — the packages used
 - [FONT_LICENSES.txt](FONT_LICENSES.txt) — the bundled fonts

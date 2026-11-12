@@ -287,8 +287,12 @@ public partial class Toolbars : UserControl
 
         if (tag == "custom")
         {
-            // Phase 1 ships the four presets; the Paragraph dialog that offers a
-            // typed value is wired in the same phase as the rest of that dialog.
+            // The Paragraph dialog, which is where a typed multiple lives.
+            // Raised as the command rather than opened here, so the dialog has
+            // one caller: the routed command finds the window's binding by
+            // bubbling up from this control.
+            Commands.ParagraphSettings.Execute(null, this);
+
             return;
         }
 

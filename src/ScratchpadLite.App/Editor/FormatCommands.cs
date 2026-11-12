@@ -574,6 +574,197 @@ internal static class FormatCommands
         }
     }
 
+    // ------------------------------------------- the Paragraph dialog ------
+
+    /// <summary>
+    /// One paragraph's shape, as the Paragraph dialog reads and writes it
+    /// (Section 8.1, Format, Paragraph).
+    /// </summary>
+    /// <remarks>
+    /// Every field is nullable and null means two different things depending
+    /// on the direction, which is the whole point of the type. Coming back
+    /// from <see cref="ReadParagraph"/>, null means the paragraphs in the
+    /// selection do not agree, so the dialog has a blank to show rather than
+    /// one paragraph's value pretending to be all of them. Going in to
+    /// <see cref="ApplyParagraph"/>, null means leave it alone, so a field
+    /// the user did not touch is not written over the paragraphs that
+    /// disagreed. The same convention the older
+    /// <see cref="SetSpacing"/> and <see cref="SetIndents"/> already use.
+    ///
+    /// <para><see cref="LineSpacing"/> carries one extra value: NaN means
+    /// automatic, which is WPF's own vocabulary for it - a cleared
+    /// <c>LineHeight</c> lets the font decide the line's height, and that is
+    /// not the same as a multiple of 1.0, which is slightly tighter than any
+    /// real font asks for.</para>
+    /// </remarks>
+    internal sealed record ParagraphLook
+    {
+        internal Align? Align { get; init; }
+        internal double? LeftPt { get; init; }
+        internal double? RightPt { get; init; }
+        internal double? FirstLinePt { get; init; }
+        internal double? BeforePt { get; init; }
+        internal double? AfterPt { get; init; }
+        internal double? LineSpacing { get; init; }
+    }
+
+    /// <summary>
+    /// What the paragraphs the selection touches have in common. A property
+    /// they do not all share comes back null.
+    /// </summary>
+    internal static ParagraphLook ReadParagraph(RichTextBox rtb)
+    {
+        ArgumentNullException.ThrowIfNull(rtb);
+
+        var first = true;
+        var look = new ParagraphLook();
+
+        foreach (var paragraph in ParagraphsIn(rtb.Selection))
+        {
+            var mine = Look(paragraph);
+
+            look = first
+                ? mine
+                : new ParagraphLook
+                {
+                    Align = Same(look.Align, mine.Align),
+                    LeftPt = Same(look.LeftPt, mine.LeftPt),
+                    RightPt = Same(look.RightPt, mine.RightPt),
+                    FirstLinePt = Same(look.FirstLinePt, mine.FirstLinePt),
+                    BeforePt = Same(look.BeforePt, mine.BeforePt),
+                    AfterPt = Same(look.AfterPt, mine.AfterPt),
+                    LineSpacing = Same(look.LineSpacing, mine.LineSpacing),
+                };
+
+            first = false;
+        }
+
+        return look;
+    }
+
+    private static ParagraphLook Look(Paragraph paragraph)
+    {
+        var margin = paragraph.Margin;
+
+        return new ParagraphLook
+        {
+            Align = paragraph.TextAlignment switch
+            {
+                TextAlignment.Center => Align.Center,
+                TextAlignment.Right => Align.Right,
+                TextAlignment.Justify => Align.Justify,
+                _ => Align.Left,
+            },
+            LeftPt = Round(margin.Left),
+            RightPt = Round(margin.Right),
+            FirstLinePt = Round(paragraph.TextIndent),
+            BeforePt = Round(margin.Top),
+            AfterPt = Round(margin.Bottom),
+
+            // A LineHeight of NaN is WPF's automatic, and so is one that was
+            // set without BlockLineHeight, because WPF ignores the height
+            // then and the number would be a fiction.
+            LineSpacing =
+                paragraph.LineHeight > 0
+                && paragraph.FontSize > 0
+                && paragraph.LineStackingStrategy == LineStackingStrategy.BlockLineHeight
+                    ? Math.Round(paragraph.LineHeight / paragraph.FontSize, 2)
+                    : double.NaN,
+        };
+    }
+
+    /// <summary>
+    /// A measurement in points, to two decimal places, with WPF's "auto" read
+    /// as nothing.
+    /// </summary>
+    /// <remarks>
+    /// A <see cref="Paragraph"/>'s <c>Margin</c> starts as
+    /// <c>Thickness(NaN)</c> - auto - and the flow layout draws auto as no
+    /// margin. Passing that NaN on would put the word "NaN" in the Paragraph
+    /// dialog's boxes, which is how this was found.
+    /// </remarks>
+    private static double Round(double dips) =>
+        double.IsNaN(dips) ? 0 : Math.Round(Units.DipsToPoints(dips), 2);
+
+    private static Align? Same(Align? a, Align? b) => a == b ? a : null;
+
+    /// <summary>
+    /// Two measurements agree if they are within a hundredth of a point,
+    /// because these came from DIPs and back and an exact comparison would
+    /// call two identical paragraphs different. Two automatics agree as well:
+    /// NaN is not equal to itself, so it needs saying.
+    /// </summary>
+    private static double? Same(double? a, double? b) =>
+        a is { } x && b is { } y
+        && ((double.IsNaN(x) && double.IsNaN(y)) || Math.Abs(x - y) < 0.01)
+            ? a
+            : null;
+
+    /// <summary>
+    /// Applies everything the dialog changed as one edit, so one Ctrl+Z puts
+    /// it all back (Section 6.8). The older one-property-at-a-time helpers
+    /// each open a change block of their own, which is right for a toolbar
+    /// button and wrong for a dialog with seven fields in it.
+    /// </summary>
+    internal static void ApplyParagraph(RichTextBox rtb, ParagraphLook wanted)
+    {
+        ArgumentNullException.ThrowIfNull(rtb);
+        ArgumentNullException.ThrowIfNull(wanted);
+
+        rtb.BeginChange();
+        try
+        {
+            foreach (var paragraph in ParagraphsIn(rtb.Selection))
+            {
+                if (wanted.Align is { } align)
+                {
+                    paragraph.TextAlignment = align switch
+                    {
+                        Align.Center => TextAlignment.Center,
+                        Align.Right => TextAlignment.Right,
+                        Align.Justify => TextAlignment.Justify,
+                        _ => TextAlignment.Left,
+                    };
+                }
+
+                var margin = paragraph.Margin;
+
+                paragraph.Margin = new Thickness(
+                    wanted.LeftPt is { } left ? Units.PointsToDips(left) : margin.Left,
+                    wanted.BeforePt is { } before ? Units.PointsToDips(before) : margin.Top,
+                    wanted.RightPt is { } right ? Units.PointsToDips(right) : margin.Right,
+                    wanted.AfterPt is { } after ? Units.PointsToDips(after) : margin.Bottom);
+
+                if (wanted.FirstLinePt is { } firstLine)
+                {
+                    paragraph.TextIndent = Units.PointsToDips(firstLine);
+                }
+
+                if (wanted.LineSpacing is not { } spacing)
+                {
+                    continue;
+                }
+
+                if (double.IsNaN(spacing) || spacing <= 0)
+                {
+                    // Back to automatic: clear the height rather than setting
+                    // a multiple of 1, which is tighter than the font's own.
+                    paragraph.LineHeight = double.NaN;
+                    paragraph.LineStackingStrategy = LineStackingStrategy.MaxHeight;
+                }
+                else
+                {
+                    paragraph.LineHeight = paragraph.FontSize * spacing;
+                    paragraph.LineStackingStrategy = LineStackingStrategy.BlockLineHeight;
+                }
+            }
+        }
+        finally
+        {
+            rtb.EndChange();
+        }
+    }
+
     /// <summary>
     /// Applies a paragraph style (Section 6.5): the paragraph properties and the
     /// base run formatting, plus the style name so the walker and the style

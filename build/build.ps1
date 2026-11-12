@@ -112,6 +112,7 @@ $docs = @{
     'CHANGELOG.txt'             = 'CHANGELOG.txt'
     'THIRD_PARTY_LICENSES.txt'  = 'THIRD_PARTY_LICENSES.txt'
     'FONT_LICENSES.txt'         = 'FONT_LICENSES.txt'
+    'QA_CHECKLIST.md'           = 'QA_CHECKLIST.md'
 }
 foreach ($source in $docs.Keys) {
     $from = Join-Path $repo $source
@@ -158,7 +159,13 @@ if ($runs.Count -ge 2) {
     # Runs 2 to 5 only: the first run also prepares the fonts (Section 11.2).
     $warm = $runs[1..($runs.Count - 1)] | Sort-Object
     $median = $warm[[int]([math]::Floor($warm.Count / 2))]
-    Write-Host ("Median of runs 2-{0}: {1:F0} ms" -f $runs.Count, $median)
+    Write-Host ("Median of runs 2-{0}: {1:F0} ms   (spread {2:F0} to {3:F0} ms)" -f `
+        $runs.Count, $median, $warm[0], $warm[-1])
+
+    # The spread is printed because the median of four runs moves by more than
+    # the differences being looked for. In Phase 9 the same build measured 726
+    # ms here and 692 ms over nine runs; without the spread the first number
+    # looks like a regression and is not one.
     if ($median -gt 1000) {
         Write-Warning "Startup is over the 1.0 s warm budget (Section 2.1). Report what caused it before continuing."
     }
@@ -225,6 +232,67 @@ $zip = Join-Path $distRoot "ScratchpadLite-v$version-windows-x64.zip"
 if (Test-Path $zip) { Remove-Item $zip -Force }
 Compress-Archive -Path $distApp -DestinationPath $zip
 
+# ------------------------------------------------------------ 8b. source zip --
+# Section 0 asks for a zip of the whole source tree at every phase gate, with a
+# listing of every file in it - changed or not - so a gate can be checked
+# against what was actually built rather than against a diff.
+#
+# The tree is walked rather than asked of git, because a file written during
+# this phase and not yet committed is still part of this phase's source. Build
+# output, the dist folder, the runtime data folder and the font and fixture
+# binaries are left out; fonts\README.txt stays, because it ships.
+Step 'Source zip'
+
+$excludedDirs = @('bin', 'obj', 'dist', '.git', '.vs', 'node_modules')
+
+$sourceFiles = Get-ChildItem $repo -Recurse -File -Force | Where-Object {
+    $relative = $_.FullName.Substring($repo.Length + 1)
+    $parts = $relative -split '\\'
+
+    $inExcludedDir = $false
+    foreach ($part in $parts[0..([math]::Max(0, $parts.Count - 2))]) {
+        if ($excludedDirs -contains $part -or $part -eq 'data') { $inExcludedDir = $true }
+    }
+
+    $isFontBinary = $relative -like 'fonts\*' -and $_.Name -ne 'README.txt'
+    $isFixture = $relative -like 'tests\Fixtures\*' -and $_.Name -ne 'README.txt'
+    $isBundle = $_.Name -like 'ScratchpadLite-v*.zip'
+
+    -not ($inExcludedDir -or $isFontBinary -or $isFixture -or $isBundle)
+}
+
+$listing = Join-Path $repo 'FILES.txt'
+$lines = @(
+    "Scratchpad Lite v$version - every file in the source bundle",
+    ('=' * 60),
+    ''
+)
+$lines += $sourceFiles |
+    ForEach-Object { '{0,10}  {1}' -f $_.Length, $_.FullName.Substring($repo.Length + 1) } |
+    Sort-Object
+$lines += ''
+$lines += "$($sourceFiles.Count) files, $([math]::Round(($sourceFiles | Measure-Object -Sum Length).Sum / 1KB)) KB"
+Set-Content -Path $listing -Value $lines -Encoding utf8
+
+$sourceZip = Join-Path $distRoot "ScratchpadLite-v$version.zip"
+if (Test-Path $sourceZip) { Remove-Item $sourceZip -Force }
+
+# Staged into a folder first, so the zip keeps the tree's shape rather than a
+# flat list of files.
+$staging = Join-Path $distRoot "src-v$version"
+foreach ($file in $sourceFiles + (Get-Item $listing)) {
+    $relative = $file.FullName.Substring($repo.Length + 1)
+    $target = Join-Path $staging $relative
+    New-Item -ItemType Directory -Path (Split-Path $target -Parent) -Force | Out-Null
+    Copy-Item $file.FullName $target -Force
+}
+
+Compress-Archive -Path (Join-Path $staging '*') -DestinationPath $sourceZip
+Remove-Item $staging -Recurse -Force
+Remove-Item $listing -Force
+
+Write-Host ("{0} files listed in FILES.txt inside the zip" -f $sourceFiles.Count)
+
 # ----------------------------------------------------------------- 9. report --
 Step 'Report'
 $exeMb = [math]::Round((Get-Item $exe).Length / 1MB, 1)
@@ -236,3 +304,7 @@ Write-Host "font bundle: $fontMb MB"
 Write-Host "zip:         $zipMb MB"
 Write-Host "zip:         $zip"
 Write-Host "sha256:      $((Get-FileHash $zip -Algorithm SHA256).Hash)"
+Write-Host ""
+Write-Host ("source zip:  {0} MB" -f [math]::Round((Get-Item $sourceZip).Length / 1MB, 2))
+Write-Host "source zip:  $sourceZip"
+Write-Host "sha256:      $((Get-FileHash $sourceZip -Algorithm SHA256).Hash)"

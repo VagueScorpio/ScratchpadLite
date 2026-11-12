@@ -4,7 +4,9 @@ using System.IO;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Input;
+using System.Windows.Media;
 using ScratchpadLite.App.Editor;
 using ScratchpadLite.App.Fonts;
 using ScratchpadLite.App.Services;
@@ -38,6 +40,13 @@ public partial class MainWindow : Window
     private readonly TabManager _tabs;
 
     private Settings _settings;
+
+    /// <summary>
+    /// The character grid while it is open. It is not modal, so a second
+    /// Insert, Special Character brings the one that is already there back to
+    /// the front rather than opening another.
+    /// </summary>
+    private Dialogs.SpecialChars? _specialChars;
 
     public MainWindow(Settings settings, CommandLineOptions options)
     {
@@ -352,6 +361,9 @@ public partial class MainWindow : Window
             Rtb.CaretPosition.InsertTextInRun(
                 DateTime.Now.ToString("d MMMM yyyy HH:mm", CultureInfo.CurrentCulture)));
 
+        Bind(Commands.ParagraphSettings, _ => ShowParagraphSettings());
+        Bind(Commands.InsertSpecialCharacter, _ => ShowSpecialChars());
+
         Bind(Commands.InsertImage, _ => InsertImage());
         Bind(Commands.InsertTable, _ => InsertTable());
         Bind(Commands.InsertHorizontalLine, _ => InsertHorizontalLine());
@@ -463,6 +475,18 @@ public partial class MainWindow : Window
             foreach (var view in LiveViews())
             {
                 view.DarkPaper = _settings.DarkPaper;
+            }
+
+            SyncViewMenu();
+        });
+
+        Bind(Commands.ToggleFormattingMarks, _ =>
+        {
+            Apply(_settings with { ShowFormattingMarks = !_settings.ShowFormattingMarks });
+
+            foreach (var view in LiveViews())
+            {
+                view.ShowFormattingMarks = _settings.ShowFormattingMarks;
             }
 
             SyncViewMenu();
@@ -771,6 +795,87 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
+    /// Alignment, indents, spacing and line spacing for the selected
+    /// paragraphs, in one dialog and one undo step (Section 8.1).
+    /// </summary>
+    private void ShowParagraphSettings()
+    {
+        var dialog = new Dialogs.ParagraphDialog { Owner = this };
+
+        dialog.Show(FormatCommands.ReadParagraph(Rtb));
+
+        if (dialog.ShowDialog() == true)
+        {
+            FormatCommands.ApplyParagraph(Rtb, dialog.Result);
+        }
+    }
+
+    /// <summary>
+    /// The character grid, opened on the font the caret is in (Section 8.1).
+    /// </summary>
+    /// <remarks>
+    /// Not a modal dialog: it stays open while characters are picked, because
+    /// the reason to open a character grid is rarely one character. The
+    /// insertion happens here rather than in the dialog, so there stays one
+    /// piece of code that writes to the document.
+    /// </remarks>
+    private void ShowSpecialChars()
+    {
+        if (_specialChars is not null)
+        {
+            _specialChars.Show(CaretFontFamily(), _settings.RecentCharacters);
+            _specialChars.Activate();
+
+            return;
+        }
+
+        var dialog = new Dialogs.SpecialChars { Owner = this };
+
+        dialog.CharacterChosen += (_, character) =>
+        {
+            InsertAtCaret(character);
+            Apply(_settings with { RecentCharacters = dialog.Recent });
+        };
+
+        dialog.Closed += (_, _) => _specialChars = null;
+
+        _specialChars = dialog;
+
+        dialog.Show(CaretFontFamily(), _settings.RecentCharacters);
+        dialog.Show();
+    }
+
+    /// <summary>The font family at the caret, or the typing default.</summary>
+    private string CaretFontFamily() =>
+        Rtb.Selection.GetPropertyValue(TextElement.FontFamilyProperty) is FontFamily family
+            ? family.Source
+            : _settings.DefaultFontFamily;
+
+    /// <summary>
+    /// Puts text in at the caret, replacing the selection, as one edit.
+    /// </summary>
+    private void InsertAtCaret(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return;
+        }
+
+        Rtb.BeginChange();
+        try
+        {
+            Rtb.Selection.Text = text;
+            Rtb.CaretPosition = Rtb.Selection.End;
+        }
+        finally
+        {
+            Rtb.EndChange();
+        }
+
+        Rtb.Focus();
+    }
+
+    /// <summary>
     /// A horizontal rule, built the same way the bridge builds one so the
     /// walker recognises it (Section 6.4).
     /// </summary>
@@ -998,6 +1103,7 @@ public partial class MainWindow : Window
         ThemeFollowItem.IsChecked = _settings.Theme == ThemeChoice.FollowWindows;
 
         DarkPaperItem.IsChecked = _settings.DarkPaper;
+        FormattingMarksItem.IsChecked = _settings.ShowFormattingMarks;
         PageWidthItem.IsChecked = _settings.PageView == PageViewMode.PageWidth;
         FullWidthItem.IsChecked = _settings.PageView == PageViewMode.FullWidth;
         StatusBarItemToggle.IsChecked = _settings.ShowStatusBar;

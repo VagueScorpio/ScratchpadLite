@@ -91,9 +91,9 @@
                     <MenuItem Header="1.5" Command="{x:Static ui:Commands.SetLineSpacing}" CommandParameter="1.5" />
                     <MenuItem Header="2.0" Command="{x:Static ui:Commands.SetLineSpacing}" CommandParameter="2.0" />
                     <Separator />
-                    <MenuItem Header="Custom..." Command="{x:Static ui:Commands.ParagraphSettings}" IsEnabled="False" />
+                    <MenuItem Header="Custom..." Command="{x:Static ui:Commands.ParagraphSettings}" />
                 </MenuItem>
-                <MenuItem Header="Paragraph..." Command="{x:Static ui:Commands.ParagraphSettings}" IsEnabled="False" />
+                <MenuItem Header="Paragraph..." Command="{x:Static ui:Commands.ParagraphSettings}" />
                 <MenuItem Header="Increase Indent" Command="EditingCommands.IncreaseIndentation" />
                 <MenuItem Header="Decrease Indent" Command="EditingCommands.DecreaseIndentation" />
                 <Separator />
@@ -112,7 +112,7 @@
                 <MenuItem Header="Link..." Command="{x:Static ui:Commands.InsertLink}" InputGestureText="Ctrl+K" />
                 <MenuItem Header="Horizontal Line" Command="{x:Static ui:Commands.InsertHorizontalLine}" />
                 <MenuItem Header="Page Break" Command="{x:Static ui:Commands.InsertPageBreak}" />
-                <MenuItem Header="Special Character..." Command="{x:Static ui:Commands.InsertSpecialCharacter}" IsEnabled="False" />
+                <MenuItem Header="Special Character..." Command="{x:Static ui:Commands.InsertSpecialCharacter}" />
                 <MenuItem Header="Date and Time" Command="{x:Static ui:Commands.InsertDateAndTime}" />
                 <Separator />
                 <MenuItem Header="Image Properties..." Command="{x:Static ui:Commands.ImageProperties}" />
@@ -181,12 +181,11 @@
                     <MenuItem Header="200%" Command="{x:Static ui:Commands.SetZoom}" CommandParameter="2.0" />
                     <MenuItem Header="400%" Command="{x:Static ui:Commands.SetZoom}" CommandParameter="4.0" />
                 </MenuItem>
-                <!-- WPF has no way to draw pilcrows and space dots in a
-                     RichTextBox; this needs a custom adorner, which is noted in
-                     the Phase 1 report rather than half-built here. -->
+                <!-- WPF draws no formatting marks of its own. Phase 9 draws
+                     them in an overlay over the text: see FormattingMarks. -->
                 <MenuItem x:Name="FormattingMarksItem" Header="Show Formatting Marks"
-                          IsCheckable="True" IsEnabled="False"
-                          ToolTip="Not built yet: WPF cannot draw formatting marks without a custom adorner." />
+                          IsCheckable="True"
+                          Command="{x:Static ui:Commands.ToggleFormattingMarks}" />
                 <MenuItem Header="Toolbars">
                     <MenuItem x:Name="ToolbarRow1Item" Header="Formatting row 1" IsCheckable="True" IsChecked="True" />
                     <MenuItem x:Name="ToolbarRow2Item" Header="Formatting row 2" IsCheckable="True" IsChecked="True" />

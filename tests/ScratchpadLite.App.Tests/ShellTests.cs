@@ -65,5 +65,14 @@ public class StartupTimerTests
 ///   <item>PhaseEightDialogTests: Preferences, Page Setup and Recover Documents read and write what they say they do.</item>
 ///   <item>MainWindowTests: the six menu items Phase 8 switched on are no longer greyed out, and the AutoSave switch is on the status bar saying whether it is on.</item>
 /// </list>
+///
+/// Phase 9 - the release
+/// <list type="bullet">
+///   <item>ParagraphDialogTests: what the selected paragraphs have in common and what they disagree on; a blank box leaving a setting alone; inches in and points out; a refused word and a refused number; and the whole dialog as one undo step, which is what ApplyParagraph exists for.</item>
+///   <item>SpecialCharacterTests: every range small enough to lay out without virtualizing; only characters the font has a glyph for, checked against the font's own map rather than against a list written here; the recently used list; and the dialog handing the character to the window rather than inserting it.</item>
+///   <item>FormattingMarksTests: these render. Off by default and nothing drawn; a pilcrow per paragraph and a dot per space counted from a real paint; the tab and the hard space; the cost proportional to the window rather than to the document; a paragraph taller than the window still marked; and the budget, which is only reached with no viewport to limit the work.</item>
+///   <item>VariableFontTests: what WPF really does with a variable font, which Section 13's fifth limitation asked to have measured. Rendered and compared pixel by pixel, because the advance widths give the wrong answer.</item>
+///   <item>ReleaseAuditTests: the manifest and project settings the release depends on - Per-Monitor V2 in both spellings, longPathAware, UTF-8, asInvoker, the Windows 10 and 11 GUID, the seven publish settings from Section 11.1 - plus one version in one place, every shipped document present, and USER_GUIDE.md still stating each of Section 13's limitations.</item>
+/// </list>
 /// </remarks>
 internal static class TestPlan;

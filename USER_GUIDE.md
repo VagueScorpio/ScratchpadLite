@@ -1,9 +1,11 @@
 # Scratchpad Lite — User Guide
 
-> **Phase 0.** This guide is written out in full so each phase fills in its own
-> section rather than inventing the documentation at the end. Anything marked
-> **(not yet)** is not built yet — see the phase table in the
-> [README](README.md).
+> **Version 1.9.** Everything in this guide is built and in the program. It was
+> written out in full at the start and filled in phase by phase, so nothing here
+> was invented at the end to match the code. Where something cannot be done, it
+> is in [Known limitations](#known-limitations) with the reason, and the
+> [fidelity matrix](#what-survives-each-format) is measured rather than
+> promised.
 
 ## Getting started
 
@@ -70,6 +72,15 @@ the by-hand changes and leaves the style.
 Alignment, indents, first-line indent, line spacing and space before and after
 are on the toolbar, in the **Format** menu, and together in **Format →
 Paragraph**.
+
+**Format → Paragraph** shows indents in inches and spacing in points, the way
+every other word processor does. A box left blank means "leave that one as it
+is" — so with several paragraphs selected, you can change the space after
+without flattening the different indents they already have. Where the selected
+paragraphs disagree about something, its box is blank when the dialog opens.
+Line spacing takes a multiple you type as well as the ones in the list;
+**Automatic** gives the font's own line height, which is slightly looser than a
+multiple of 1. Whatever you change, one Ctrl+Z puts all of it back.
 
 You can edit the styles yourself: `data/styles.json` holds them in plain text.
 
@@ -158,6 +169,22 @@ document can say one thing and point somewhere else entirely, and some addresses
 start other programs.
 
 **Remove Link** in the right-click menu takes the link off and keeps the text.
+
+### Special characters
+
+**Insert → Special Character** opens a grid of characters in the font the caret
+is in — arrows, fractions, currency, accented letters, mathematical operators,
+Greek, Cyrillic and the rest, a range at a time.
+
+It shows only the characters that font can actually draw. A grid of empty boxes
+would be worse than no grid, since every one of them would put a character in
+your document that nothing can show. If a range comes up empty, the font has
+nothing in it; try another font.
+
+The characters you use are kept at the top under **Recently used**, and they
+survive a restart. The window stays open while you pick, because the reason to
+open a character grid is rarely one character — double-click a character to
+insert it, or select it and press Insert.
 
 ## Fonts
 
@@ -433,9 +460,16 @@ white, because a page is a page.
 uses the whole window. Zoom runs from 50% to 400% — the View menu, the slider in
 the status bar, or Ctrl and the mouse wheel. Ctrl+0 resets it.
 
-**Show Formatting Marks** is not built yet. WPF cannot draw paragraph marks and
-space dots inside its rich text control without a custom overlay, so the menu
-item is there and disabled rather than pretending.
+**Show Formatting Marks** draws a pilcrow (¶) at the end of every paragraph, a
+dot between words, an arrow across a tab, and a return mark where a line break
+is. A non-breaking space gets a small ring instead of a dot, which is usually
+what you are looking for when a line refuses to break where you want it. The
+marks are drawn over the text, never in it: they are not in the document, not
+in a saved file and not on a printed page.
+
+Only the part of the document on screen is marked, so the cost does not grow
+with the length of the file. In a very long paragraph the dots stop after about
+twenty thousand characters of visible text and the paragraph marks carry on.
 
 ## Printing and PDF
 
@@ -555,8 +589,13 @@ it took, and exits. It is there for the build script.
 4. **The first launch after adding many fonts** prepares them in the background.
    You can type at once, but those fonts appear in the picker over the next
    moments. Later launches skip the work.
-5. **Variable fonts** may show only their default style. Confirmed in Phase 2;
-   this line gets the real answer then.
+5. **Variable fonts show the styles they name, and nothing in between.**
+   Measured in Phase 9 rather than assumed: Bahnschrift, which ships with
+   Windows as one file holding five weights, offers all five in the picker and
+   draws each one differently. What cannot be done is asking for a weight the
+   font does not name — a weight in between snaps to the nearest one the font
+   declares instead of being interpolated, so a variable font behaves here like
+   a family of separate styles rather than a sliding scale.
 6. **A font removed from `fonts/` stays in the list until you restart.** Windows
    cannot unload a font that is in use.
 7. **Custom fonts travel only if embedded.** Without embedding (Phase 10), a
@@ -596,8 +635,9 @@ it took, and exits. It is there for the build script.
 18. **A recovered document is not your file.** Restoring from the Recover
     Documents dialog opens the work as an unsaved tab; you decide whether it
     replaces what is on disk.
-19. **Two menu items are not built yet:** Format → Paragraph (and Line Spacing
-    → Custom), and Insert → Special Character. They are there and disabled
-    rather than missing. Line spacing is available from its own submenu, and
-    indents from the Format menu.
+19. **Formatting marks stop part way through a very long paragraph.** The dots
+    and arrows are drawn for about twenty thousand characters of visible text;
+    past that the paragraph marks carry on alone. Each dot costs a question to
+    the layout engine about where that character landed, and a paragraph long
+    enough to reach the limit is longer than a screenful anyway.
 20. **The `.exe` is not signed,** so SmartScreen warns on first run.

@@ -32,14 +32,16 @@ jobs:
         # cold numbers are measured on a real PC at each phase gate (Section 2.1).
         run: ./build/build.ps1
 
-      - name: Upload the zip as a build artifact
+      # Both zips: the portable build and the source bundle Section 0 asks for
+      # at every gate. build.ps1 writes them side by side in dist\.
+      - name: Upload the zips as a build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ScratchpadLite-windows-x64
+          name: ScratchpadLite-zips
           path: dist/*.zip
           if-no-files-found: error
 
-      - name: Attach the zip to the release
+      - name: Attach the zips to the release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:

@@ -8,6 +8,7 @@ underneath. Old entries are never removed.
 Contents
 --------
 
+  v1.9  2026-11-12  Phase 9: the release
   v1.8  2026-11-12  Phase 8: recovery, AutoSave, print, single instance
   v1.7  2026-11-11  Phase 7: tabs, find and replace, spell check
   v1.6  2026-11-11  Phase 6: lists, tables, images, links
@@ -18,6 +19,198 @@ Contents
   v1.1  2026-11-08  Phase 1: editor core
   v1.0  2026-11-08  Phase 0: skeleton and pipeline
 
+
+--------------------------------------------------------------------------------
+v1.9  -  2026-11-12  -  Phase 9: the release
+--------------------------------------------------------------------------------
+
+What
+----
+
+The release pass: the QA checklist, the documents, the source bundle - and the
+three menu items that were still greyed out. A release with a dead menu item in
+it is not a release, so they were built first.
+
+  * Format, Paragraph (ParagraphDialog). Alignment, left and right indent,
+    first line, space before and after, and line spacing, in one dialog and one
+    undo step. Indents in inches and spacing in points, which is what every
+    other word processor shows. A blank box means "leave that one as it is", so
+    a change to several paragraphs at once does not flatten the differences
+    between them; where the selected paragraphs disagree, the box starts blank.
+    Line Spacing, Custom goes to the same dialog, and so does the toolbar's
+    line-spacing menu.
+  * Insert, Special Character (SpecialChars). A grid of characters in the font
+    at the caret, a Unicode range at a time, with the ones used lately kept at
+    the top and remembered in settings. It shows only the characters the font
+    can actually draw, asked of the font's own character map. The window stays
+    open while characters are picked, and the insertion is done by the window
+    rather than by the dialog, so there is still one piece of code that writes
+    to the document.
+  * View, Show Formatting Marks (FormattingMarks). A pilcrow at the end of
+    every paragraph, a dot between words, an arrow across a tab, a return mark
+    at a line break, and a ring rather than a dot for a non-breaking space.
+    Phase 1 left this disabled because WPF has nothing for it; it is an overlay
+    over the text that reads where each character landed.
+  * QA_CHECKLIST.md: all twenty-two checks in Section 10.2, each one saying
+    whether a test covers it, whether it was run here against the built .exe,
+    or whether it needs a person and a screen - and for the tested ones, which
+    test.
+  * The source bundle Section 0 asks for at every phase gate, which no phase
+    had produced: build.ps1 now writes dist\ScratchpadLite-v1.X.zip, the whole
+    source tree with a FILES.txt listing every file in it.
+  * New tests: the manifest and publish settings the release depends on, EOT
+    refusals, what WPF really does with a variable font, and the three features
+    above.
+  * 907 tests passing (387 in Core, 520 in App), up from 854.
+
+Measured on this PC, publishing the release build:
+
+    warm startup   683 ms, the median of runs 2-5, spread 669 to 728.
+    budget         1000 ms warm. Cold needs a reboot and is yours to check;
+                   the budget is 2.0 s.
+    idle memory    159.3 MB working set, 86.3 MB private
+    .exe           170.0 MB, up 0.1 MB from v1.8
+    zip            68.2 MB
+    source zip     0.63 MB, 205 files
+
+Startup was measured three times over two publishes of the same code, because
+the first answer looked like a regression and was not one: 726 ms (median of
+runs 2-5), then 692 ms (median of nine runs, 666 to 700), then 683 ms (median
+of runs 2-5, 669 to 728). The spread inside a single run of five is about 60
+ms, which is wider than any of the differences between those three numbers and
+wider than the gap from v1.8's 695. So build.ps1 now prints the spread beside
+the median: a bare number invites a hunt for a cause that is not there.
+Nothing was added before the first frame this phase - the marks overlay is one
+element in the editor's own XAML and paints nothing while it is switched off.
+
+The end-to-end checks in QA_CHECKLIST.md were run against this build:
+
+    no runtime     ran with DOTNET_ROOT pointed at nothing and dotnet taken
+                   off the PATH: 677 ms to the first frame
+    hand-off       a second launch with a file passed it to the running copy
+                   and exited; the log shows the first copy opening it
+    read-only      with the program folder denied new files, the app ran
+                   (686 ms), wrote nothing beside the .exe, and put its data
+                   in %LOCALAPPDATA%\ScratchpadLite
+    scaling        the editor rendered at 96 and 192 DPI; the text and the
+                   marks are drawn at the higher resolution, not scaled
+
+Why
+---
+
+Three menu items had been greyed out since the phases that were meant to build
+them - two of them without being reported at the time, which was a gap in those
+phase reports. The release is the last point at which that can be put right,
+and every one of the three is in Section 8.1's menus, so leaving them would
+have meant shipping a program whose menus describe features it does not have.
+
+The Paragraph dialog needed one new thing underneath it: ApplyParagraph, which
+sets everything the dialog changed inside a single change block. The older
+helpers - SetAlignment, SetIndents, SetSpacing, SetLineSpacing - each open a
+change block of their own, which is right for a toolbar button and wrong for a
+dialog with seven fields, because it would take seven Ctrl+Z to undo one OK.
+
+The blank box is the other half of it. A dialog that shows a number for every
+field has to invent one when the selected paragraphs disagree, and whatever it
+invents gets written to all of them the moment OK is pressed. A blank says "they
+differ" on the way in and "leave them alone" on the way out, and those are the
+same statement.
+
+The character grid shows only what the font has because the alternative is a
+grid of empty boxes, every one of which would insert a character the document
+cannot show. The ranges are each a single Unicode block or less, so the grid is
+a few hundred buttons rather than tens of thousands, which is what lets it be a
+plain WrapPanel: WPF has no virtualizing wrap panel, and writing one for a
+dialog that is opened occasionally would be a lot of machinery for nothing.
+
+Formatting marks are drawn rather than inserted, which is the only honest way:
+they are not in the document, so they cannot be saved, printed, selected or
+deleted. The overlay sits in the same grid cell as the text box rather than in
+an adorner layer, because the adorner layer belongs to the window and is not
+clipped by the editor's scroll viewer - marks would have been painted over the
+toolbar the moment the document scrolled.
+
+Only the visible text is marked. That is not an optimisation, it is what makes
+the feature possible: each mark costs a GetCharacterRect, which is a question
+to the layout engine rather than a lookup, and a three-hundred-page document
+has a million of them. Working out which text is on screen costs two questions
+in total, so a paint is proportional to the window rather than to the file.
+
+How
+---
+
+Six things the tests found, four of them before the feature was finished.
+
+  * The first version of the visible-range check asked where each paragraph
+    ended, so a paragraph taller than the window - its start above the top of
+    the screen and its end below the bottom - was skipped entirely. The marks
+    vanished exactly when there was most to mark. It now asks whether the
+    paragraph reaches the visible range at all.
+  * The last paragraph on screen lost its pilcrow. The position that bounds
+    the visible range is an insertion point inside the text, and a paragraph's
+    ContentEnd is always past the last of those, so "is the end inside the
+    range" was false for the paragraph the caret was most likely to be in.
+  * A tab had no arrow. WPF reports a tab's rectangle as the caret position
+    there, with no width, so the arrow was drawn two pixels wide. It is now
+    drawn from the tab to wherever the next character starts, which is where
+    the tab stop actually landed.
+  * A paragraph's Margin starts as NaN - "auto" - and the flow layout draws
+    auto as no margin. Reading it straight into the Paragraph dialog put the
+    word NaN in four of its boxes. Found by a probe that printed what undo
+    really restores, which also settled the question it was written for: WPF
+    does record a direct property set on a paragraph, so one Ctrl+Z does undo
+    the whole dialog.
+  * Section 13's fifth known limitation said variable fonts "may show only
+    their default style", and the blueprint asked for the real answer. The real
+    answer is that they show every style they name: Bahnschrift, which ships
+    with Windows as one file holding five weights, draws Light, Regular and
+    Bold differently. What cannot be done is a weight the font does not name -
+    asking for 800 from a font that names 700 gets 700 rather than something
+    heavier. Measured by rendering the same word three times and comparing the
+    pixels, because comparing advance widths gave the wrong answer: Bahnschrift's
+    weights happen to share their widths, which is how the font is drawn rather
+    than anything WPF did. The guide's limitation now says this.
+  * EotDecoder had no test for a corrupt file, although Section 10.1 asks for
+    one for every decoder. An .eot is a file from a web page, which Section 7.5
+    treats as untrusted, and the header alone decides seven different refusals.
+    All seven are now tested, with no fixture needed - the header is 82 bytes
+    and a test can write it out in full, so these run on a clean clone where
+    the fixture-based font tests step aside.
+
+The new tests that are about the release rather than about a feature:
+
+  * ReleaseAuditTests reads the manifest and the project file. Per-Monitor V2
+    DPI awareness in both spellings, longPathAware, UTF-8, asInvoker, the
+    Windows 10 and 11 GUID, and the seven publish settings Section 11.1
+    measured and chose. Each of those is one line that nothing would fail
+    without until somebody ran the .exe on a PC with no .NET, or looked at the
+    app on a 200% display and found every letter soft.
+  * It also checks that the version is in exactly one place, that every
+    document the zip ships exists, and that USER_GUIDE.md still states each of
+    Section 13's known limitations.
+  * The formatting-marks tests render. Asserting that the switch is on would
+    prove nothing, so they paint the editor into a bitmap and count what the
+    overlay drew - the same reason Phase 8's one-column test counts glyph
+    origins rather than reading back the column width it set.
+
+The source bundle. Section 0 asks for a zip of the whole source tree at every
+phase gate, and no phase produced one; the portable build was zipped and the
+source was not. build.ps1 now writes both. The tree is walked rather than asked
+of git, because a file written during a phase and not yet committed is still
+part of that phase's source.
+
+Three documents were out of date rather than wrong, which is worse, because
+nothing in them looked like a question:
+
+  * USER_GUIDE.md said Show Formatting Marks was not built, and listed the
+    other two unbuilt menu items as limitation 19. All three now have sections
+    of their own, and limitation 19 is the one real limit the marks have: they
+    stop after about twenty thousand characters of visible text in a single
+    paragraph.
+  * Its header still said "Phase 0" and explained how to read a half-written
+    guide.
+  * The variable font line had been waiting since Phase 2 for the measurement
+    described above.
 
 --------------------------------------------------------------------------------
 v1.8  -  2026-11-12  -  Phase 8: recovery, AutoSave, print, single instance

@@ -55,6 +55,16 @@ public partial class EditorView : UserControl
 
         RemoveConflictingBuiltInBindings();
         ApplyPageView();
+
+        Marks.Target = EditorBox;
+        Marks.Viewport = Scroller;
+
+        // The marks are drawn from where the text landed, so they have to be
+        // redrawn whenever that could have moved: after a scroll, after a
+        // zoom (which is a layout change), and after the text itself changed
+        // and WPF has laid it out again.
+        Scroller.ScrollChanged += (_, _) => Marks.Refresh();
+        EditorBox.LayoutUpdated += (_, _) => Marks.Refresh();
     }
 
     /// <summary>The hosted control. Every command in <see cref="FormatCommands"/> takes it.</summary>
@@ -120,6 +130,21 @@ public partial class EditorView : UserControl
     }
 
     /// <summary>
+    /// Pilcrows, space dots, tab arrows and return marks (Section 8.1, View,
+    /// Show Formatting Marks). Off by default, and worth nothing at all when
+    /// off: <see cref="FormattingMarks"/> paints nothing and the refresh
+    /// hooks return at their first line.
+    /// </summary>
+    internal bool ShowFormattingMarks
+    {
+        get => Marks.Enabled;
+        set => Marks.Enabled = value;
+    }
+
+    /// <summary>The marks overlay, for the tests that measure what it drew.</summary>
+    internal FormattingMarks MarksOverlay => Marks;
+
+    /// <summary>
     /// Applies the typing defaults from settings and gives the first paragraph
     /// its style name, so a brand new document is already a Normal paragraph
     /// rather than an unnamed one.
@@ -135,6 +160,7 @@ public partial class EditorView : UserControl
         Zoom = settings.Zoom;
         PageView = settings.PageView;
         DarkPaper = settings.DarkPaper;
+        ShowFormattingMarks = settings.ShowFormattingMarks;
 
         if (EditorBox.Document.Blocks.FirstBlock is Paragraph first)
         {
@@ -163,6 +189,7 @@ public partial class EditorView : UserControl
         Zoom = settings.Zoom;
         PageView = settings.PageView;
         DarkPaper = settings.DarkPaper;
+        ShowFormattingMarks = settings.ShowFormattingMarks;
 
         ApplyPageView();
         OnWordCountTick(this, EventArgs.Empty);

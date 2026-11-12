@@ -45,6 +45,12 @@ namespace ScratchpadLite.Core.Tests;
 ///   <item>PhaseEightDialogTests: Preferences gives back exactly what it was given, clamps an interval and refuses a word; Page Setup shows inches and stores points; the recovery dialog's Restore with nothing ticked means Later rather than Discard.</item>
 /// </list>
 ///
+/// Phase 9 - the release
+/// <list type="bullet">
+///   <item>EotDecoderTests: the seven refusals the EOT header alone decides - too short, empty, wrong magic number, compressed, a font size the file cannot hold, no font at all, and a header that fits over bytes that are not a font. No fixture needed, so these run on a clean clone where the round-trip font tests step aside.</item>
+///   <item>Section 10.1 was read through against what exists for this release. The one gap it had was the EOT decoder's corrupt-file tests, above. AppPaths' read-only fallback is checked end to end instead of by a unit test, because the thing that can go wrong is what Windows throws from a really denied folder rather than the one if that reads it; the run and its result are in QA_CHECKLIST.md.</item>
+/// </list>
+///
 /// Phase 2 - fonts
 /// <list type="bullet">
 ///   <item>FontScannerTests: every type is sorted correctly by magic bytes even when the extension lies; oversize files are skipped.</item>

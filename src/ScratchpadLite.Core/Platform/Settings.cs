@@ -83,6 +83,20 @@ public sealed record Settings
     public bool TxtWriteBom { get; init; }
     public long MaxOpenFileBytes { get; init; } = 200L * 1024 * 1024;
 
+    /// <summary>
+    /// The characters picked in the Special Character dialog lately, newest
+    /// first (Section 8.1).
+    /// </summary>
+    /// <remarks>
+    /// A list of strings rather than of characters, because a character the
+    /// dialog offers may be a surrogate pair, and because
+    /// <c>System.Text.Json</c> writes a char as a one-letter string anyway.
+    /// IReadOnlyList is safe to read back, unlike the IReadOnlySet that Phase
+    /// 8 found in the IR; there is a test for that in PlatformTests either
+    /// way, because being sure costs one test and being wrong cost a phase.
+    /// </remarks>
+    public IReadOnlyList<string> RecentCharacters { get; init; } = [];
+
     /// <summary>Per-format "don't warn me again" flags for lossy saves (Section 7.1).</summary>
     public IReadOnlyDictionary<string, bool> SuppressSaveWarning { get; init; }
         = new Dictionary<string, bool>();
