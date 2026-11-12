@@ -549,8 +549,11 @@ public static class FontPreparer
     /// the knob exists for: a single burst that has just read every font in the
     /// folder, is over, and will not happen again this launch. The large object
     /// heap is not compacted by default, so without this a 400 MB font folder
-    /// left the app sitting at around 450 MB for the rest of the session -
-    /// three times the Section 2.1 budget, for memory holding nothing.
+    /// left the app sitting at around 450 MB for the rest of the session - and
+    /// all of it holding nothing. There is no fixed memory ceiling in this
+    /// project (see the README), but a third of a gigabyte of empty heap is a
+    /// saving available for the asking, which is exactly the kind the rule
+    /// means to take.
     /// <para>
     /// It runs on the preparation thread, which is below normal priority and
     /// has no deadline, so the pause costs the user nothing.

@@ -47,6 +47,16 @@ internal static class DocumentIo
         }
 
         var extension = Path.GetExtension(path);
+
+        // RTF is read on the UI thread, by WPF, straight onto a FlowDocument -
+        // so it cannot go down this path at all (Section 7.2). The caller
+        // handles it; this is here so a mistake is loud rather than silent.
+        if (FormatRegistry.InfoFor(extension) is { HandledOnTheFlowDocument: true })
+        {
+            throw new InvalidOperationException(
+                $"{extension} is read on the UI thread; use the flow-document path instead.");
+        }
+
         var handler = FormatRegistry.For(extension);
 
         if (handler is null)

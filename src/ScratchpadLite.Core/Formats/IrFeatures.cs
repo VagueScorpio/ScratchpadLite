@@ -93,12 +93,16 @@ public static class IrFeatures
     private static void Scan(CharStyle style, ref Capabilities used)
     {
         if (style.Bold || style.Italic || style.Strike
-            || style.Underline != UnderlineKind.None
             || style.Vertical != VAlign.Normal
             || style.SmallCaps
             || style.AllCapsPreserved)
         {
             used |= Capabilities.CharFormat;
+        }
+
+        if (style.Underline != UnderlineKind.None)
+        {
+            used |= Capabilities.Underline;
         }
 
         if (style.Family is not null || style.SizePt is not null

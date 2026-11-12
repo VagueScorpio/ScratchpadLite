@@ -31,9 +31,10 @@ public sealed class DocxFormat : IFormatHandler
     public bool CanWrite => true;
 
     public Capabilities Capabilities =>
-        Capabilities.CharFormat | Capabilities.Fonts | Capabilities.Colors
-        | Capabilities.Headings | Capabilities.Lists | Capabilities.Tables
-        | Capabilities.Images | Capabilities.Links | Capabilities.PageSetup;
+        Capabilities.CharFormat | Capabilities.Underline | Capabilities.Fonts
+        | Capabilities.Colors | Capabilities.Headings | Capabilities.Lists
+        | Capabilities.Tables | Capabilities.Images | Capabilities.Links
+        | Capabilities.PageSetup;
 
     public ReadResult Read(Stream input, string sourcePath, CancellationToken ct) =>
         DocxReader.Read(input, Styles, ct);

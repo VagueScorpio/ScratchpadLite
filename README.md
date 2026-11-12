@@ -5,11 +5,13 @@ no .NET runtime, no Office, nothing else needed on the PC.
 
 Windows 10 (version 1809 or later) and Windows 11, x64.
 
-> **Status: Phase 4 — opening and saving.**
-> You can open and save `.docx` and `.txt` files, with everything the editor
-> can do surviving the trip. The `fonts/` folder takes almost any font format.
-> Markdown, ODT and RTF, tabs, find and spell check are still ahead —
-> [Build Phases](#build-phases) tracks what lands when.
+> **Status: Phase 5 — every format opens and saves.**
+> `.docx`, `.odt`, `.rtf`, `.md` and `.txt` all open and save, with everything
+> the editor can do surviving the trip as far as each format allows - the
+> [fidelity matrix](USER_GUIDE.md#what-survives-each-format) is measured rather
+> than promised. The `fonts/` folder takes almost any font format. Tabs, find
+> and spell check are still ahead — [Build Phases](#build-phases) tracks what
+> lands when.
 
 ## What it will do
 
@@ -120,6 +122,26 @@ window's first render. Every launch logs it (`startup: 640 ms`) and Help → Abo
 shows the last value. `ScratchpadLite.exe --measure-startup` prints the number
 and exits, which is what the build script takes a median of.
 
+### Memory has no ceiling, only a direction
+
+Startup has a hard budget. Memory does not, and deliberately so.
+
+Section 2.1 of the blueprint originally set 150 MB idle. Through Phases 1 to 4
+that line went from comfortable to spent — not through waste, but because a
+WPF application that parses this many formats and holds a document in memory
+costs what it costs, and most of what the figure counts is the framework's own
+mapped pages rather than anything this code chose to keep.
+
+So the rule is a direction rather than a limit: **keep it as small as it can
+be, measure it every phase, and report the number.** Where there is a real
+saving to be had, take it — Phase 2 cut a 772 MB peak to 247 MB that way, and
+that work was worth doing whatever the target had been. Where the only way to
+hit a number would be to make the app worse, the number loses.
+
+Every phase entry in [CHANGELOG.txt](CHANGELOG.txt) records the working set
+and the private bytes measured for that build, so the trend is visible even
+though there is no line to cross.
+
 The publish settings were chosen by measurement, not preference
 (`build.ps1 -MeasureVariants`). These numbers are from the Phase 0 build — it
 is the comparison between the three that settled the choice, and the current
@@ -145,7 +167,7 @@ so compression buys nothing a user would notice and costs something they would.
 | 2 | v1.2 | Fonts: index, cache, WOFF and WOFF2, font picker, Font Report — **done** |
 | 3 | v1.3 | More font formats: Type 1, Mac containers, EOT, Type 42 — **done** |
 | 4 | v1.4 | IR, the bridge, TXT and DOCX — **done** |
-| 5 | v1.5 | Markdown, ODT, RTF |
+| 5 | v1.5 | Markdown, ODT, RTF — **done** |
 | 6 | v1.6 | Lists, tables, images, links |
 | 7 | v1.7 | Tabs, find and replace, spell check |
 | 8 | v1.8 | Recovery, AutoSave, themes, print, single instance |

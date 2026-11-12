@@ -32,6 +32,7 @@ public class FormatRegistryTests
 
         Assert.DoesNotContain("DocumentFormat.OpenXml", newlyLoaded);
         Assert.DoesNotContain("DocumentFormat.OpenXml.Framework", newlyLoaded);
+        Assert.DoesNotContain("Markdig", newlyLoaded);
     }
 
     [Fact]
@@ -41,6 +42,9 @@ public class FormatRegistryTests
 
         Assert.StartsWith("All supported files|", filter, StringComparison.Ordinal);
         Assert.Contains("*.docx", filter, StringComparison.Ordinal);
+        Assert.Contains("*.odt", filter, StringComparison.Ordinal);
+        Assert.Contains("*.rtf", filter, StringComparison.Ordinal);
+        Assert.Contains("*.md", filter, StringComparison.Ordinal);
         Assert.Contains("*.txt", filter, StringComparison.Ordinal);
         Assert.EndsWith("|All files|*.*", filter, StringComparison.Ordinal);
 
@@ -63,17 +67,36 @@ public class FormatRegistryTests
     [InlineData(".DOCX")]
     [InlineData("docx")]
     [InlineData(".txt")]
+    [InlineData(".odt")]
+    [InlineData(".md")]
+    [InlineData(".markdown")]
     public void AHandlerIsFoundForAnExtensionHoweverItIsSpelled(string extension) =>
         Assert.NotNull(FormatRegistry.For(extension));
 
+    [Fact]
+    public void RtfIsListedButHasNoCoreHandler()
+    {
+        // WPF's RTF converter only speaks FlowDocument, so the handler lives
+        // in the App project. The registry still has to know the format exists,
+        // for the dialog filters and the save warning (Section 7.1).
+        var info = FormatRegistry.InfoFor(".rtf");
+
+        Assert.NotNull(info);
+        Assert.True(info!.HandledOnTheFlowDocument);
+        Assert.True(info.CanRead);
+        Assert.True(info.CanWrite);
+        Assert.Null(FormatRegistry.For(".rtf"));
+
+        // And it appears in both dialog filters.
+        Assert.Contains("*.rtf", FormatRegistry.OpenFilter(), StringComparison.Ordinal);
+        Assert.Contains("*.rtf", FormatRegistry.SaveFilter(), StringComparison.Ordinal);
+    }
+
     [Theory]
-    [InlineData(".odt")]
-    [InlineData(".md")]
-    [InlineData(".rtf")]
     [InlineData(".xyz")]
+    [InlineData(".doc")]
     [InlineData("")]
     public void AnUnregisteredExtensionHasNoHandler(string extension) =>
-        // ODT, Markdown and RTF are Phase 5, and must not pretend to work yet.
         Assert.Null(FormatRegistry.For(extension));
 
     [Fact]

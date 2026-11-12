@@ -164,6 +164,29 @@ if ($runs.Count -ge 2) {
     }
 }
 
+# ---------------------------------------------------- 7a. idle memory check --
+# Reported, never gated. There is no memory ceiling in this project: the rule is
+# to keep it as small as it can be and to know the number every build, so the
+# trend is visible. See "Memory has no ceiling, only a direction" in README.md.
+Step 'Idle memory'
+$app = Start-Process -FilePath $exe -PassThru
+try {
+    Start-Sleep -Seconds 8
+    $app.Refresh()
+
+    if ($app.HasExited) {
+        Write-Warning 'The app exited on its own; idle memory was not measured.'
+    } else {
+        Write-Host ("Working set: {0:F1} MB   private bytes: {1:F1} MB" -f `
+            ($app.WorkingSet64 / 1MB), ($app.PrivateMemorySize64 / 1MB))
+    }
+} finally {
+    if (-not $app.HasExited) {
+        $null = $app.CloseMainWindow()
+        if (-not $app.WaitForExit(10000)) { $app.Kill() }
+    }
+}
+
 # --------------------------------------- 7b. three-way publish measurement ----
 if ($MeasureVariants) {
     Step 'Publish variants (Section 11.1)'

@@ -118,8 +118,12 @@ public partial class MainWindow
             // document opens looking wrong (Section 6.6).
             await FontRegistry.IndexReady.WaitAsync(TimeSpan.FromSeconds(10)).ConfigureAwait(true);
 
-            var opened = await DocumentIo.ReadAsync(path, _styles, CancellationToken.None)
-                .ConfigureAwait(true);
+            // RTF is the exception (Section 7.2): WPF's converter only speaks
+            // FlowDocument, so it is read here on the UI thread rather than in
+            // the background, and the IR comes from walking the result.
+            var opened = IsRtf(path)
+                ? ReadRtf(path)
+                : await DocumentIo.ReadAsync(path, _styles, CancellationToken.None).ConfigureAwait(true);
 
             var session = new DocumentSession
             {
@@ -132,7 +136,13 @@ public partial class MainWindow
                 LastSavedIr = opened.Document,
             };
 
-            Editor.Editor.Document = DocumentIo.ToFlowDocument(opened.Document, _styles);
+            // RTF has already put its own FlowDocument in the editor, and
+            // rebuilding it from the walked IR would throw away whatever WPF's
+            // converter kept that the IR has no room for.
+            if (!IsRtf(path))
+            {
+                Editor.Editor.Document = DocumentIo.ToFlowDocument(opened.Document, _styles);
+            }
 
             Reset(session);
 
@@ -210,8 +220,16 @@ public partial class MainWindow
         {
             Status.ShowMessage($"Saving {Path.GetFileName(path)}...", transient: false);
 
-            await DocumentIo.WriteAsync(document, path, _styles, _settings.KeepBakFile, CancellationToken.None)
-                .ConfigureAwait(true);
+            if (IsRtf(path))
+            {
+                WriteRtf(path);
+            }
+            else
+            {
+                await DocumentIo
+                    .WriteAsync(document, path, _styles, _settings.KeepBakFile, CancellationToken.None)
+                    .ConfigureAwait(true);
+            }
 
             _session.FilePath = path;
             _session.LastSavedIr = document;
@@ -241,6 +259,53 @@ public partial class MainWindow
         {
             _busy = false;
         }
+    }
+
+    /// <summary>Whether this path is the one format handled on the FlowDocument.</summary>
+    private static bool IsRtf(string path) =>
+        FormatRegistry.InfoFor(Path.GetExtension(path)) is { HandledOnTheFlowDocument: true };
+
+    /// <summary>
+    /// Reads an RTF file (Section 7.2).
+    /// </summary>
+    /// <remarks>
+    /// On the UI thread, because WPF's RTF converter works on a FlowDocument
+    /// and a FlowDocument belongs to the thread that owns the window. That is
+    /// the whole reason this format bypasses DocumentIo. A very large RTF will
+    /// therefore pause the window where a .docx of the same size would not -
+    /// an honest cost of using the converter that already exists rather than
+    /// writing one.
+    /// </remarks>
+    private DocumentIo.Opened ReadRtf(string path)
+    {
+        var stamp = FileOps.Stamp.Of(path);
+        var flow = new System.Windows.Documents.FlowDocument();
+
+        using (var stream = File.OpenRead(path))
+        {
+            new Formats.RtfFormat(_styles).Load(flow, stream);
+        }
+
+        Editor.Editor.Document = flow;
+
+        // Walked for the save warning, the recovery file and the font list;
+        // the editor already has the document itself.
+        var document = Bridge.FlowWalker.Walk(flow, _styles);
+
+        return new DocumentIo.Opened(
+            document,
+            ["Paragraph style names are not stored in RTF, so headings were matched by their formatting."],
+            stamp);
+    }
+
+    private void WriteRtf(string path)
+    {
+        var rtf = new Formats.RtfFormat(_styles);
+
+        FileOps.AtomicWrite(
+            path,
+            stream => rtf.Save(Editor.Editor.Document, stream),
+            _settings.KeepBakFile);
     }
 
     private string? AskWhereToSave(string? current)

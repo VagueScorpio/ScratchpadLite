@@ -4,6 +4,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.IO;
 using ScratchpadLite.App.Fonts;
 using ScratchpadLite.Core.Model;
 using IrBlock = ScratchpadLite.Core.Model.Block;
@@ -299,11 +301,24 @@ internal static class FlowWalker
         return false;
     }
 
+    /// <summary>
+    /// Walks a run of inlines into IR.
+    /// </summary>
+    /// <remarks>
+    /// The <paramref name="link"/> and <paramref name="inherited"/> arguments
+    /// are what a surrounding hyperlink contributes, passed down because a
+    /// hyperlink's content is not always a flat list of runs. WPF's RTF reader
+    /// puts a Span inside the Hyperlink, and the first version of this method
+    /// looked only at direct Run children - so every link in an opened .rtf
+    /// lost its text entirely, not just its target.
+    /// </remarks>
     internal static IReadOnlyList<IrInline> WalkInlines(
         IEnumerable<WpfInline> inlines,
         ParagraphStyle style,
         StyleSheet styles,
-        HashSet<string> fonts)
+        HashSet<string> fonts,
+        string? link = null,
+        Brush? inherited = null)
     {
         var result = new List<IrInline>();
 
@@ -315,7 +330,7 @@ internal static class FlowWalker
                     if (run.Text.Length > 0)
                     {
                         result.Add(new TextRun(
-                            run.Text, StyleOf(run, style, styles, fonts, link: null, inherited: null)));
+                            run.Text, StyleOf(run, style, styles, fonts, link, inherited)));
                     }
 
                     break;
@@ -325,15 +340,13 @@ internal static class FlowWalker
                     var target = SpProps.GetLink(hyperlink)
                                  ?? hyperlink.NavigateUri?.ToString();
 
-                    foreach (var child in hyperlink.Inlines)
-                    {
-                        if (child is Run linked && linked.Text.Length > 0)
-                        {
-                            result.Add(new TextRun(
-                                linked.Text,
-                                StyleOf(linked, style, styles, fonts, target, hyperlink.Foreground)));
-                        }
-                    }
+                    result.AddRange(WalkInlines(
+                        hyperlink.Inlines,
+                        style,
+                        styles,
+                        fonts,
+                        target ?? link,
+                        hyperlink.Foreground));
 
                     break;
                 }
@@ -352,9 +365,12 @@ internal static class FlowWalker
 
                 case Span span:
                     // A Span is formatting applied to several runs. Its runs
-                    // report the span's values as effective values, so walking
-                    // the children is enough and the span itself adds nothing.
-                    result.AddRange(WalkInlines(span.Inlines, style, styles, fonts));
+                    // report the span's inherited values - weight, size,
+                    // foreground - as their own effective values, so walking
+                    // the children is enough for those. The two that do not
+                    // inherit, TextDecorations and Background, are collected
+                    // by looking up the tree from each run instead.
+                    result.AddRange(WalkInlines(span.Inlines, style, styles, fonts, link, inherited));
                     break;
             }
         }
@@ -378,12 +394,60 @@ internal static class FlowWalker
                 payload.Alt);
         }
 
-        // An image that arrived some other way - pasted, most likely - so there
-        // are no original bytes to keep. Phase 6 encodes those as PNG when
-        // pasting is wired up; until then there is nothing to write.
-        Log.Debug("an image with no original bytes was skipped by the walker");
+        // An image that arrived some other way: from WPF's RTF reader, or
+        // pasted. There are no original bytes, so they are made - the pixels
+        // are right there in the BitmapSource, and encoding them as PNG is
+        // lossless. Dropping the picture instead meant every image in an
+        // opened .rtf disappeared, which is a worse answer than a re-encode.
+        if (image.Source is BitmapSource bitmap)
+        {
+            return Encoded(image, bitmap);
+        }
+
+        Log.Debug("an image with no bytes and no bitmap was skipped by the walker");
 
         return null;
+    }
+
+    /// <summary>
+    /// Encodes a bitmap that came with no file bytes of its own as PNG.
+    /// </summary>
+    private static ImageRun? Encoded(Image image, BitmapSource bitmap)
+    {
+        try
+        {
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(bitmap));
+
+            using var stream = new MemoryStream();
+            encoder.Save(stream);
+
+            // The displayed size where there is one, otherwise the bitmap's
+            // own, which for a pasted picture is all there is.
+            var width = double.IsNaN(image.Width) ? image.ActualWidth : image.Width;
+            var height = double.IsNaN(image.Height) ? image.ActualHeight : image.Height;
+
+            if (width <= 0 || height <= 0)
+            {
+                width = bitmap.Width;
+                height = bitmap.Height;
+            }
+
+            return new ImageRun(
+                stream.ToArray(),
+                "image/png",
+                Units.DipsToPoints(width),
+                Units.DipsToPoints(height),
+                image.ToolTip as string ?? "");
+        }
+        catch (Exception ex) when (ex is NotSupportedException or InvalidOperationException
+                                       or ArgumentException or IOException)
+        {
+            // A bitmap that cannot be encoded is not worth failing a save for.
+            Log.Warn($"an image could not be encoded and was left out: {ex.Message}");
+
+            return null;
+        }
     }
 
     /// <summary>
@@ -428,7 +492,7 @@ internal static class FlowWalker
             AllCapsPreserved = preserved?.AllCaps ?? false,
             LetterSpacingPtPreserved = preserved?.LetterSpacingPt,
             Color = ForegroundOf(run, style, inherited),
-            Highlight = ColorOf(run.Background),
+            Highlight = ColorOf(BackgroundOf(run)),
             Link = link,
         };
     }
@@ -485,10 +549,68 @@ internal static class FlowWalker
     }
 
     private static bool HasUnderline(Run run) =>
-        run.TextDecorations.Any(d => d.Location == TextDecorationLocation.Underline);
+        HasDecoration(run, TextDecorationLocation.Underline);
 
     private static bool HasStrikethrough(Run run) =>
-        run.TextDecorations.Any(d => d.Location == TextDecorationLocation.Strikethrough);
+        HasDecoration(run, TextDecorationLocation.Strikethrough);
+
+    /// <summary>
+    /// Whether this run is decorated, by itself or by something it sits
+    /// inside.
+    /// </summary>
+    /// <remarks>
+    /// TextDecorations is not an inheriting property, but it renders as though
+    /// it were: a Span marked underlined draws every run inside it underlined,
+    /// while each of those runs reports an empty TextDecorations of its own.
+    /// So the effective value can only be found by walking up.
+    /// <para>
+    /// It matters because WPF's RTF reader puts the decoration on a Span, so
+    /// reading only the run lost every underline and every strikethrough in
+    /// an opened .rtf - and the same would happen to pasted text.
+    /// </para>
+    /// <para>
+    /// The walk stops at a Hyperlink, whose underline belongs to the link
+    /// style rather than to the text. Writing it down as direct formatting
+    /// would mean a link saved and reopened came back as underlined text that
+    /// happens to be a link.
+    /// </para>
+    /// </remarks>
+    private static bool HasDecoration(Run run, TextDecorationLocation where)
+    {
+        for (WpfInline? inline = run; inline is not null and not Hyperlink; inline = inline.Parent as WpfInline)
+        {
+            if (inline.TextDecorations.Any(d => d.Location == where))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// The highlight behind this run, from itself or from something it sits
+    /// inside.
+    /// </summary>
+    /// <remarks>
+    /// Background does not inherit either, for the same reason: a Span's
+    /// background is painted behind its content, not inherited by it. The walk
+    /// stops at the first Inline that has one, and never leaves the inlines -
+    /// a Paragraph's background is paragraph shading, which is not a run's
+    /// highlight.
+    /// </remarks>
+    private static Brush? BackgroundOf(Run run)
+    {
+        for (WpfInline? inline = run; inline is not null; inline = inline.Parent as WpfInline)
+        {
+            if (inline.Background is { } brush)
+            {
+                return brush;
+            }
+        }
+
+        return null;
+    }
 
     /// <summary>
     /// The foreground colour, or null when it matches the paragraph style.

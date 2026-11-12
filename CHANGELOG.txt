@@ -1,4 +1,4 @@
-Scratchpad Lite - Changelog
+﻿Scratchpad Lite - Changelog
 ===========================
 
 Every change gets a section with its version and date, and What / Why / How
@@ -8,12 +8,175 @@ underneath. Old entries are never removed.
 Contents
 --------
 
+  v1.5  2026-11-11  Phase 5: Markdown, ODT and RTF
   v1.4  2026-11-09  Phase 4: the IR, the bridge, TXT and DOCX
   v1.3  2026-11-09  Phase 3: the rest of the font formats
   v1.2  2026-11-08  Phase 2: fonts
   v1.1  2026-11-08  Phase 1: editor core
   v1.0  2026-11-08  Phase 0: skeleton and pipeline
 
+
+--------------------------------------------------------------------------------
+v1.5  -  2026-11-11  -  Phase 5: Markdown, ODT and RTF
+--------------------------------------------------------------------------------
+
+What
+----
+
+The other three formats, so every format the project promises now opens and
+saves.
+
+  * Markdown: MarkdownReader on Markdig, MarkdownWriter by hand. Headings from
+    the style sheet's outline levels, bold, italic, strikethrough, nested
+    lists with their numbering, pipe tables, links, rules, fenced code for the
+    Code style, block quotes for Quote, and images written to a sidecar folder
+    beside the document.
+  * ODT: OdtWriter, OdtReader, OdtXml, OdtStyleMap and StyleTable, hand-written
+    on ZipArchive and System.Xml.Linq. Named styles for the style sheet,
+    automatic styles for direct formatting and deduplicated, list definitions
+    per marker, tables with merges and shading, pictures under Pictures/, page
+    layout, metadata, and the manifest.
+  * RTF: RtfFormat on WPF's own converter, with the heading guess, plus a
+    header check so a file that is not RTF is refused rather than read as
+    rubbish.
+  * The save warning learnt the difference between underline and the rest of
+    character formatting, because Markdown keeps bold and italic and has no
+    underline at all.
+  * 542 tests passing (370 in Core, 172 in App), up from 416.
+  * The fidelity matrix in USER_GUIDE.md is now measured rather than predicted,
+    including three corrections to the blueprint's version.
+
+Measured on this PC, publishing the release build:
+
+    warm startup   656 ms median of runs 2-5 (652, 656, 654, 692)
+    budget         1000 ms warm. Cold is not measured here - it needs a
+                   reboot - and was 2.0 s budgeted.
+    idle memory    144.8 MB working set, 83.1 MB private
+    .exe           169.2 MB, up 1.7 MB from v1.4's 167.5 MB (Markdig)
+    zip            67.8 MB
+
+Markdig costs nothing at startup: FormatRegistry still creates every handler
+through Lazy<T>, and the test that asserts opening a dialog filter loads no
+format assembly now names Markdig alongside the Open XML SDK.
+
+Why
+---
+
+Three formats, three different reasons for the shape of the code, and the
+reasons are worth recording because they are not symmetrical.
+
+ODT is hand-written because nothing free and maintained covers it, and because
+the part of ODT this app needs is a zip of XML - which .NET already has.
+Markdown is read with Markdig and written by hand: parsing Markdown properly is
+genuinely hard and Markdig is the standard answer, while writing it is a matter
+of choosing what to escape, and that choice is the whole quality of the output.
+RTF is neither, because Windows already has a converter better than anything
+worth hand-writing here - at the price of it being someone else's, with limits
+this project cannot lift.
+
+The blueprint's fidelity matrix turned out to be wrong in three places, and the
+rule is to say so rather than work around it quietly (Section 0: uncertainty).
+
+  * RTF does not keep super- or subscript. The matrix said it did. WPF's RTF
+    writer has no \super or \sub keyword at all: it writes the smaller font
+    size the editor draws them with, and nothing else, so the text comes back
+    small and on the baseline. Fixing this would mean writing RTF by hand,
+    which the blueprint ruled out, so it is recorded instead.
+  * RTF keeps only one kind of underline. The matrix said "partly", which was
+    right to be cautious: all five kinds survive as a plain underline.
+  * RTF is better than the matrix expected everywhere else. Tables keep their
+    merges, images survive, and links survive - all three were marked "partly"
+    and all three are measured here as working.
+
+The save warning's capability flags could not express the Markdown case. One
+CharFormat flag covered bold, italic and underline together, so a Markdown save
+either claimed it would lose bold, which is false, or claimed it would keep
+underline, which is also false. Underline is now its own flag. The cost is one
+more flag; the benefit is that the warning tells the truth, and a warning that
+cries wolf is a warning people switch off.
+
+Markdown's images go in a folder rather than into the file because Markdown has
+nowhere to put them. That makes a save able to leave files behind, so a save
+clears out the images this app wrote last time and leaves everything else in
+that folder alone - a README or a picture the user put there survives.
+
+How
+---
+
+The ODT writer's XML is written with SaveOptions.DisableFormatting, and that is
+a correctness choice rather than a size one. Indenting the XML puts newlines
+and spaces inside text:p, and in ODT the text inside a paragraph is content: a
+reader folds that whitespace into a single space rather than discarding it, so
+every indented paragraph gains a leading and a trailing space. "Hello, world."
+came back as " Hello, world. " until this was found, which looks exactly like a
+reader bug.
+
+A horizontal rule is a paragraph with a bottom border in both ODT and DOCX, and
+recognising one has to happen in the block loop rather than in the paragraph
+reader - a function that returns a paragraph can only return a paragraph, and
+returning an empty one turned every rule into a blank line.
+
+The ODT reader flattens a style's whole parent chain before reading a run, so a
+paragraph of Heading 3 arrives already bold. Bold and italic therefore have to
+be subtracted against the app's own style sheet exactly as family, size and
+colour already were, or the style's own weight becomes direct formatting on
+every run and the next save writes it twice. The same applies to the left indent
+that Quote carries. This is easy to miss because the two are not nullable in the
+IR, unlike the others.
+
+ODT list definitions are now one per marker rather than one for bullets and one
+for numbers, because the numbering format lives in the definition and not on the
+list that uses it. A list that does not start at one says so with
+text:start-value on its first item.
+
+ODT column widths are automatic styles. There is no width attribute on
+table:table-column, so a table whose columns have no styles is a table of equal
+columns however the IR describes it - the widths were simply never written
+before.
+
+The cell shading styles the ODT writer declares were held in a static
+dictionary, drained when content.xml was built. Two documents saving at once
+would have mixed their styles. They are per-document now, alongside the column
+and list styles.
+
+Markdown escaping is split in two. EscapeInline handles what is syntax anywhere
+in a line; EscapeBlockStarts handles what is syntax only at the start of one,
+which cannot be decided while a run is being escaped because the run's position
+in the line is not yet known. So "# not a heading" goes out as "\# not a
+heading" and "1. not a list" as "1\. not a list", escaping the delimiter rather
+than the digits. An underscore inside a word is left alone - CommonMark says it
+is not emphasis, and a file full of \_ cannot be read as text, which is the only
+reason to use Markdown at all.
+
+A Markdown file nested deeper than Markdig's own limit is refused with a
+readable message. Markdig throws ArgumentException rather than overflowing the
+stack, which is the right thing to do, but an opened file is untrusted
+(Section 7.5) and has to come out as a bad file rather than as a bad argument -
+otherwise the user is told only that it "could not be opened".
+
+Three bugs in FlowWalker came out of the RTF tests, all the same shape: the
+walker assumed the tree its own builder produces, and WPF's RTF reader nests
+differently.
+
+  * A hyperlink's content is not always a flat list of runs. WPF's reader puts
+    a Span inside the Hyperlink, and the walker looked only at direct Run
+    children, so every link in an opened .rtf lost its text entirely - not
+    just its target.
+  * TextDecorations and Background do not inherit in WPF's property system
+    although they render as though they do: a Span marked underlined draws
+    every run inside it underlined while each of those runs reports an empty
+    TextDecorations of its own. Both are now collected by walking up the inline
+    chain, which stops at a hyperlink, whose underline belongs to the link
+    style rather than to the text.
+  * An image that arrives without original bytes is encoded as PNG from its
+    bitmap instead of being dropped. The pixels are there and PNG is lossless,
+    so a re-encode is a better answer than a missing picture. This is what
+    makes pictures in an opened .rtf survive, and it will do the same for
+    pasted ones in Phase 6.
+
+None of the three could have been found by testing the bridge against itself,
+which is the general lesson: a round trip through your own code proves only
+that it is self-consistent.
 
 --------------------------------------------------------------------------------
 v1.4  -  2026-11-09  -  Phase 4: the IR, the bridge, TXT and DOCX

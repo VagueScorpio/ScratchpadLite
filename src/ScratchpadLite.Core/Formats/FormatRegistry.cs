@@ -31,7 +31,20 @@ public static class FormatRegistry
         IReadOnlyList<string> Extensions,
         bool CanRead,
         bool CanWrite,
-        Capabilities Capabilities);
+        Capabilities Capabilities)
+    {
+        /// <summary>
+        /// True for a format handled on the FlowDocument instead of the IR -
+        /// which is RTF and only RTF (Section 7.1).
+        /// </summary>
+        /// <remarks>
+        /// It is listed here so the dialog filters and the save warning know
+        /// about it, but <see cref="For"/> returns no handler for it: WPF's
+        /// RTF converter only speaks FlowDocument, so the handler lives in the
+        /// App project and the open and save flow routes around the IR for it.
+        /// </remarks>
+        public bool HandledOnTheFlowDocument { get; init; }
+    }
 
     /// <summary>
     /// The formats, with how to make each one's handler.
@@ -42,7 +55,7 @@ public static class FormatRegistry
     /// enough for the runtime to load its assembly when the table is first
     /// touched, which happens when the Open dialog is built.
     /// </remarks>
-    private sealed record Entry(FormatInfo Info, Lazy<IFormatHandler> Handler);
+    private sealed record Entry(FormatInfo Info, Lazy<IFormatHandler>? Handler);
 
     private static readonly Entry[] Formats =
     [
@@ -52,10 +65,47 @@ public static class FormatRegistry
                 [".docx"],
                 CanRead: true,
                 CanWrite: true,
-                Capabilities.CharFormat | Capabilities.Fonts | Capabilities.Colors
-                | Capabilities.Headings | Capabilities.Lists | Capabilities.Tables
-                | Capabilities.Images | Capabilities.Links | Capabilities.PageSetup),
+                Capabilities.CharFormat | Capabilities.Underline | Capabilities.Fonts
+                | Capabilities.Colors | Capabilities.Headings | Capabilities.Lists
+                | Capabilities.Tables | Capabilities.Images | Capabilities.Links
+                | Capabilities.PageSetup),
             new Lazy<IFormatHandler>(() => new Docx.DocxFormat(), LazyThreadSafetyMode.ExecutionAndPublication)),
+
+        new(
+            new FormatInfo(
+                "OpenDocument Text",
+                [".odt"],
+                CanRead: true,
+                CanWrite: true,
+                Capabilities.CharFormat | Capabilities.Underline | Capabilities.Fonts
+                | Capabilities.Colors | Capabilities.Headings | Capabilities.Lists
+                | Capabilities.Tables | Capabilities.Images | Capabilities.Links
+                | Capabilities.PageSetup),
+            new Lazy<IFormatHandler>(() => new Odt.OdtFormat(), LazyThreadSafetyMode.ExecutionAndPublication)),
+
+        new(
+            new FormatInfo(
+                "Rich Text Format",
+                [".rtf"],
+                CanRead: true,
+                CanWrite: true,
+                Capabilities.CharFormat | Capabilities.Underline | Capabilities.Fonts
+                | Capabilities.Colors | Capabilities.Lists | Capabilities.Tables
+                | Capabilities.Images | Capabilities.Links)
+            {
+                HandledOnTheFlowDocument = true,
+            },
+            Handler: null),
+
+        new(
+            new FormatInfo(
+                "Markdown",
+                [".md", ".markdown"],
+                CanRead: true,
+                CanWrite: true,
+                Capabilities.CharFormat | Capabilities.Headings | Capabilities.Lists
+                | Capabilities.Tables | Capabilities.Images | Capabilities.Links),
+            new Lazy<IFormatHandler>(() => new Markdown.MarkdownFormat(), LazyThreadSafetyMode.ExecutionAndPublication)),
 
         new(
             new FormatInfo(
@@ -86,7 +136,7 @@ public static class FormatRegistry
             {
                 if (string.Equals(candidate, wanted, StringComparison.OrdinalIgnoreCase))
                 {
-                    return format.Handler.Value;
+                    return format.Handler?.Value;
                 }
             }
         }
@@ -173,7 +223,12 @@ public static class FormatRegistry
 
         if (lost.HasFlag(Capabilities.CharFormat))
         {
-            names.Add("bold, italic and underline");
+            names.Add("bold, italic and strikethrough");
+        }
+
+        if (lost.HasFlag(Capabilities.Underline))
+        {
+            names.Add("underline");
         }
 
         if (lost.HasFlag(Capabilities.Fonts))

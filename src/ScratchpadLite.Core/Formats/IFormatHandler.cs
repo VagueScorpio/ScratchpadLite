@@ -7,6 +7,8 @@ namespace ScratchpadLite.Core.Formats;
 public enum Capabilities
 {
     None = 0,
+
+    /// <summary>Bold, italic and strikethrough.</summary>
     CharFormat = 1,
     Fonts = 2,
     Colors = 4,
@@ -16,6 +18,13 @@ public enum Capabilities
     Images = 64,
     Links = 128,
     PageSetup = 256,
+
+    /// <summary>
+    /// Underline, which is its own flag because Markdown keeps bold and
+    /// italic and has no underline at all. Folding the two together would
+    /// make the save warning claim a Markdown save loses bold.
+    /// </summary>
+    Underline = 512,
 }
 
 public sealed record ReadResult(SpDocument Document, IReadOnlyList<string> Warnings);

@@ -3,12 +3,20 @@ using ScratchpadLite.Core.Model;
 namespace ScratchpadLite.Core.Formats.Odt;
 
 /// <summary>
-/// OpenDocument Text, hand-written on top of ZipArchive and XDocument
-/// (Section 7.2), because no maintained free .NET ODT library exists.
+/// OpenDocument text, hand-written on ZipArchive and System.Xml.Linq
+/// (Section 7.2). No package: nothing maintained and free covers ODT, and the
+/// parts of it this app needs are a zip of XML.
 /// </summary>
-/// <remarks>Phase 5.</remarks>
+/// <remarks>
+/// The test that matters for this format cannot be automated here: a file this
+/// writes has to open in LibreOffice without a repair prompt. The blueprint
+/// says so and says the check is done by hand, because the app neither uses
+/// nor tests against LibreOffice.
+/// </remarks>
 public sealed class OdtFormat : IFormatHandler
 {
+    public StyleSheet Styles { get; set; } = StyleSheet.Default;
+
     public string Name => "OpenDocument Text";
 
     public IReadOnlyList<string> Extensions => [".odt"];
@@ -17,11 +25,16 @@ public sealed class OdtFormat : IFormatHandler
 
     public bool CanWrite => true;
 
-    public Capabilities Capabilities => Capabilities.CharFormat | Capabilities.Fonts | Capabilities.Colors | Capabilities.Headings | Capabilities.Lists | Capabilities.Tables | Capabilities.Images | Capabilities.Links | Capabilities.PageSetup;
+    /// <summary>Everything, like .docx (Section 7.3).</summary>
+    public Capabilities Capabilities =>
+        Capabilities.CharFormat | Capabilities.Underline | Capabilities.Fonts
+        | Capabilities.Colors | Capabilities.Headings | Capabilities.Lists
+        | Capabilities.Tables | Capabilities.Images | Capabilities.Links
+        | Capabilities.PageSetup;
 
     public ReadResult Read(Stream input, string sourcePath, CancellationToken ct) =>
-        throw new NotImplementedException("Phase 5");
+        OdtReader.Read(input, Styles, ct);
 
     public void Write(SpDocument doc, Stream output, string targetPath, CancellationToken ct) =>
-        throw new NotImplementedException("Phase 5");
+        OdtWriter.Write(doc, output, Styles, ct);
 }

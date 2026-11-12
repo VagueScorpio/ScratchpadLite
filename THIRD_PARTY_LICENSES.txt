@@ -24,6 +24,20 @@ Shipped in the application
              actually opened or saved. A test asserts that building the Open
              dialog filter loads neither SDK assembly.
 
+  Markdig                                             0.42.0
+    License  BSD-2-Clause
+    Why      Reading Markdown (Section 7.2). The standard .NET Markdown
+             parser. Writing Markdown is hand-written, because what makes
+             written Markdown good is the choice of what to escape, and that
+             is a decision rather than a library.
+    Cost     Measured when it went in, as Section 2.1 requires: the .exe grew
+             from 167.5 MB to 169.2 MB, so about 1.7 MB. Warm startup did not
+             move (683 ms before, 656 ms after - within the run-to-run noise),
+             because FormatRegistry creates handlers through Lazy<T> and
+             nothing loads Markdig until a .md file is actually opened. The
+             test that asserts building a dialog filter loads no format
+             assembly names Markdig as well as the Open XML SDK.
+
   System.IO.Packaging                                 10.0.14
     License  MIT
     Why      Pinned explicitly. The version the Open XML SDK asks for
@@ -56,12 +70,6 @@ Code written here from a published reference
 
 Planned, with the phase that adds them
 --------------------------------------
-
-  Markdig                                             Phase 5
-    License  BSD-2-Clause
-    Why      Reading Markdown. The standard .NET Markdown parser. Writing
-             Markdown is hand-written, so only the reader needs it.
-    Note     Also lazily loaded.
 
   System.Text.Encoding.CodePages                      not needed
     Why      Windows-1252 text files. The blueprint expected a package for

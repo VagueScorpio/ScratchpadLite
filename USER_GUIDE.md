@@ -133,8 +133,7 @@ to something else.
 
 ### What opens and saves
 
-`.docx` and `.txt` work now. `.md`, `.rtf` and `.odt` arrive in Phase 5; until
-then the Open dialog does not offer them.
+`.docx`, `.odt`, `.rtf`, `.md` and `.txt` all open and save.
 
 **Old `.doc` files are not supported.** Open one in Word or LibreOffice and save
 it as `.docx` first. Scratchpad Lite will tell you this rather than trying and
@@ -149,20 +148,40 @@ instead. You can switch the warning off per format once you have seen it.
 | | DOCX | ODT | RTF | MD | TXT |
 | --- | --- | --- | --- | --- | --- |
 | Bold, italic | yes | yes | yes | yes | no |
-| Underline kinds | yes | yes | partly | no | no |
 | Strikethrough | yes | yes | yes | yes | no |
-| Super/subscript | yes | yes | yes | no | no |
+| Underline | yes | yes | one kind only | no | no |
+| Super/subscript | yes | yes | **no** | no | no |
 | Font name, size | yes | yes | yes | no | no |
 | Color, highlight | yes | yes | yes | no | no |
 | Headings | yes | yes | look only | yes | no |
 | Lists | yes | yes | yes | yes | as text |
-| Tables | yes | yes | partly | simple | as tabs |
-| Images | yes | yes | partly | sidecar folder | no |
-| Links | yes | yes | partly | yes | no |
+| Numbering style | yes | yes | yes | numbers only | no |
+| Tables | yes | yes | yes | simple | as tabs |
+| Merged cells | yes | yes | yes | no | no |
+| Images | yes | yes | re-encoded as PNG | sidecar folder | no |
+| Links | yes | yes | yes | yes | no |
 | Page setup | yes | yes | no | no | no |
 
-The "partly" entries are confirmed in Phase 5 and this table is updated with the
-real results then.
+Every row above was measured, not assumed. Three of them are worth a word:
+
+**RTF loses super- and subscript.** Scratchpad Lite uses the RTF converter
+built into Windows, and that converter has no way to write either one: the text
+keeps its smaller size but drops back onto the baseline. Save as `.docx` or
+`.odt` if a document needs them.
+
+**RTF keeps only one kind of underline.** A double, dotted, dashed or wavy
+underline comes back as a plain one. The underline itself is never lost.
+
+**RTF headings keep their look, not their name.** A heading saved to `.rtf` is
+large bold text. On opening one, Scratchpad Lite works out which heading it was
+from its size and weight, so a file it saved reopens with its headings intact —
+but a heading in a file from another program is only recognised if its
+formatting matches one of the style sheet's headings exactly.
+
+**Markdown puts pictures in a folder.** Saving `report.md` with pictures in it
+writes them to `report_images/` beside the file. Both have to travel together.
+Saving again clears out the pictures Scratchpad Lite wrote last time and leaves
+anything else in that folder alone.
 
 ### Saving is safe
 
