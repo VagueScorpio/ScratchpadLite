@@ -78,6 +78,9 @@ internal sealed class StyleTable
 
         internal string? CellShading { get; init; }
 
+        /// <summary>Whether the cell draws a border on any side.</summary>
+        internal bool CellBordered { get; init; }
+
         internal double? ColumnWidthPt { get; init; }
 
         /// <summary>
@@ -279,10 +282,20 @@ internal sealed class StyleTable
 
         if (style.Element(OdtXml.Style + "table-cell-properties") is { } cell)
         {
+            var border = cell.Attribute(OdtXml.Fo + "border")?.Value;
+
             result = result with
             {
                 CellShading = OdtXml.FromColor(cell.Attribute(OdtXml.Fo + "background-color")?.Value)
                               ?? result.CellShading,
+
+                // "none" and a zero width both mean no border; anything else
+                // is one. A file from another program may say it four times,
+                // once per side, and any one of them showing is enough.
+                CellBordered = Bordered(border)
+                               || Bordered(cell.Attribute(OdtXml.Fo + "border-left")?.Value)
+                               || Bordered(cell.Attribute(OdtXml.Fo + "border-top")?.Value)
+                               || result.CellBordered,
             };
         }
 
@@ -454,6 +467,13 @@ internal sealed class StyleTable
         return result;
     }
 
+    private static bool Bordered(string? border) =>
+        border is { Length: > 0 }
+        && !border.Equals("none", StringComparison.OrdinalIgnoreCase)
+        && !border.StartsWith("0 ", StringComparison.Ordinal)
+        && !border.StartsWith("0pt", StringComparison.OrdinalIgnoreCase)
+        && !border.StartsWith("0in", StringComparison.OrdinalIgnoreCase);
+
     private static bool IsBold(string weight)
     {
         if (weight.Equals("bold", StringComparison.OrdinalIgnoreCase))
@@ -553,6 +573,9 @@ internal sealed class StyleTable
 
     /// <summary>A table cell's shading, from its style.</summary>
     internal string? CellShadingFor(string? styleName) => Resolve(styleName).CellShading;
+
+    /// <summary>Whether a cell style draws a border.</summary>
+    internal bool CellHasBorder(string? styleName) => Resolve(styleName).CellBordered;
 
     /// <summary>A table column's width in points, from its style.</summary>
     internal double? ColumnWidthFor(string? styleName) => Resolve(styleName).ColumnWidthPt;

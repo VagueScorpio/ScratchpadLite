@@ -8,6 +8,7 @@ underneath. Old entries are never removed.
 Contents
 --------
 
+  v1.6  2026-11-11  Phase 6: lists, tables, images, links
   v1.5  2026-11-11  Phase 5: Markdown, ODT and RTF
   v1.4  2026-11-09  Phase 4: the IR, the bridge, TXT and DOCX
   v1.3  2026-11-09  Phase 3: the rest of the font formats
@@ -15,6 +16,158 @@ Contents
   v1.1  2026-11-08  Phase 1: editor core
   v1.0  2026-11-08  Phase 0: skeleton and pipeline
 
+
+--------------------------------------------------------------------------------
+v1.6  -  2026-11-11  -  Phase 6: lists, tables, images, links
+--------------------------------------------------------------------------------
+
+What
+----
+
+The four things from Section 6.9 can now be made and edited, not only opened
+from a file. Phase 1 left all four as stubs that threw; this fills them in.
+
+  * Lists (ListCommands): toggle bullets and numbering, nest with Tab and come
+    back with Shift+Tab, Enter on an empty item to end the list or step out of
+    a nested one, restart and continue numbering. Markers change with depth -
+    bullets cycle through three shapes, numbers through decimal, letters and
+    roman - which is what the bridge already did when building a list from a
+    file, so a list typed by hand and the same list reopened now match.
+  * Tables (TableCommands): insert with a dialog for rows, columns and borders;
+    insert and delete rows and columns; merge and split cells; cell shading;
+    borders on and off; Tab to the next cell, which adds a row from the last
+    one. All of it is this project's own code, because WPF has no table
+    editing commands at all.
+  * Images (ImageSupport): insert from a file, scaled to the text column;
+    resize by dragging the corner handles, with the shape kept unless Shift is
+    held; an Image Properties dialog for width, height and alt text; and one
+    copy of a picture's bytes per document however many times it is used.
+  * Links (LinkSupport): Ctrl+K to insert or edit, Ctrl+click to open, Remove
+    Link, and the rule about what may be opened without asking.
+  * Three dialogs built for real: InsertTable, InsertLink, ImageProperties.
+  * A right-click menu in the editor, holding the numbering controls, the link
+    and picture actions and the whole Table menu - Section 6.9 puts them there
+    because that is where the thing they act on is.
+  * Insert -> Horizontal Line and Insert -> Page Break, which the IR and every
+    format already carried but nothing in the editor could produce.
+  * 651 tests passing (370 in Core, 281 in App), up from 542.
+
+Measured on this PC, publishing the release build:
+
+    warm startup   674 ms median of runs 2-5 (697, 655, 670, 674)
+    budget         1000 ms warm. Cold is not measured here - it needs a
+                   reboot - and was 2.0 s budgeted.
+    idle memory    148.6 MB working set, 85.5 MB private
+    .exe           169.4 MB, up 0.2 MB from v1.5
+    zip            67.9 MB
+
+Why
+---
+
+The blueprint's Section 6.9 says to build the list levels on WPF's
+IncreaseIndentation and DecreaseIndentation commands. That does not work, and
+the way it fails is the worst kind: the command reports that it can execute,
+runs without complaint, and does nothing to the list. WPF's own list nesting
+lives in its Tab key handling rather than in a command, so there is nothing to
+call. What IncreaseIndentation does instead is widen the paragraph's margin,
+which looks like an indent on screen until the file is saved and the list turns
+out to have been flat all along.
+
+So the nesting is written here against the List and ListItem objects: an item
+moves into a list inside the item above it, which is the shape the bridge
+builds from a file and reads back. Toggling bullets and numbering still goes
+through WPF's commands, which do work, with the markers fixed up afterwards.
+
+Two decisions about tables are worth recording.
+
+A WPF table row does not hold one cell per column. A cell with RowSpan 2
+occupies its own row and the one below, and the row below simply has one cell
+fewer - there is no placeholder. So a cell's column cannot be read off its
+index in the row, and every operation needs the table laid out as a grid first.
+That is done once, in TableCommands.Grid, rather than six times slightly
+differently.
+
+And a table selection cannot be read from WPF's Selection. A selection is a
+stretch of a document, and a document reads a table row by row, so dragging
+down the left column of a two-by-two table leaves a selection that starts in
+the top-left cell and ends in the bottom-right one - indistinguishable from
+selecting the whole table. Merging what that describes would quietly merge four
+cells when two were chosen. The editor therefore records which cell the pointer
+was in when a drag began and when it ended, and a merge uses those two corners.
+A keyboard selection has no drag and falls back to what WPF reports, which is
+recorded as a limitation in the user guide.
+
+Pictures keep their original bytes rather than being re-encoded on each save,
+so a photograph saved ten times is not ten generations of JPEG, and the bytes
+are shared between copies: a logo in forty places costs one array. The key is
+the SHA-1 of the content, which is a content key and not a security decision -
+a collision would mean two pictures sharing a buffer they are identical to
+anyway.
+
+The link rule is the security boundary of this phase. A document is untrusted
+(Section 7.5), and a hyperlink in one is a line of text asking this program to
+run something. http, https and mailto can only reach a browser or a mail
+client, so they open straight away. Everything else - file:, a UNC path, a
+custom scheme some other application registered - is shown to the user with its
+full address first, because the text of a link and its target can say
+completely different things, and that is exactly how a document talks someone
+into opening something. The decision is a separate function from the dialog
+that acts on it, so the rule itself is tested.
+
+How
+---
+
+Seven bugs the new tests found, every one of them something a user would have
+hit on the first afternoon.
+
+  * Pressing Tab in a list threw the caret to the top of the document. Moving
+    a ListItem between collections invalidates every TextPointer inside it, and
+    WPF then drops the caret at the start of the document. The paragraph object
+    survives the move, so the caret is remembered as a paragraph plus an offset
+    and put back.
+  * Enter on an empty list item never ended the list. Two separate reasons, and
+    either alone was enough: WPF leaves an empty Run behind when it splits a
+    paragraph, so "no inlines" is never true; and TextRange.Text over a
+    paragraph includes its break, so an empty paragraph measures two
+    characters. The emptiness test now reads the runs.
+  * Selecting a word and pressing Ctrl+K replaced the word with the URL. With
+    no display text given, the address was used as the text even when there was
+    a selection to keep.
+  * Changing a link's text destroyed the link. Assigning to a TextRange over a
+    Hyperlink's content deletes the content and inserts plain text in its
+    place, and the Hyperlink goes with it - silently. The inlines are replaced
+    instead.
+  * Select All then Ctrl+K made no link at all. A Hyperlink is an inline and
+    cannot span paragraphs, and its constructor given two pointers that do
+    produces nothing, with no exception. The range is clamped to the paragraph
+    the selection starts in.
+  * Edit Link and Remove Link were greyed out immediately after making a link,
+    because the caret sits just after it and its parent is then the paragraph.
+    A caret beside a link now counts as in it, the way it already did for
+    pictures.
+  * An ODT table always came back with its borders on. ODT has nowhere to put a
+    border but a cell's automatic style, and the writer only wrote a style for
+    shaded cells - so there was nothing for the reader to read, and it returned
+    true regardless.
+
+The test harness needed work of its own, and the lesson generalises. A detached
+RichTextBox is not a working editor, and the ways it falls short are quiet:
+Selection.Select does nothing, so a test that selects text and formats it
+formats nothing; and WPF's editing commands report CanExecute false without
+keyboard focus, so Execute returns having done nothing. AcceptsTab matters too -
+without it the indentation commands will not run. AppHost.InFocusedEditor now
+hands out an editor focused inside a shown window, configured the way
+EditorView.xaml configures its own, because a test on a differently configured
+control is testing something the user never sees.
+
+Ctrl+Shift+8 and Ctrl+Shift+7 are the list shortcuts, as Section 8.3 says, and
+WPF's own Ctrl+Shift+L and Ctrl+Shift+N are removed from the editor's bindings -
+both because two shortcuts for one action is one too many, and because the raw
+commands would bypass the marker fix-up.
+
+Capabilities gained no new flags this phase: lists, tables, images and links
+were already in the set, because the formats could already carry them. What
+changed is that the editor can now produce them.
 
 --------------------------------------------------------------------------------
 v1.5  -  2026-11-11  -  Phase 5: Markdown, ODT and RTF

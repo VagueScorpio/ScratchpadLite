@@ -96,35 +96,46 @@
                 <MenuItem Header="Increase Indent" Command="EditingCommands.IncreaseIndentation" />
                 <MenuItem Header="Decrease Indent" Command="EditingCommands.DecreaseIndentation" />
                 <Separator />
+                <MenuItem Header="Bulleted List" Command="{x:Static ui:Commands.ToggleBulletList}" InputGestureText="Ctrl+Shift+8" />
+                <MenuItem Header="Numbered List" Command="{x:Static ui:Commands.ToggleNumberList}" InputGestureText="Ctrl+Shift+7" />
+                <MenuItem Header="Restart Numbering" Command="{x:Static ui:Commands.RestartNumbering}" />
+                <MenuItem Header="Continue Numbering" Command="{x:Static ui:Commands.ContinueNumbering}" />
+                <Separator />
                 <MenuItem Header="Clear Formatting" Command="{x:Static ui:Commands.ClearFormatting}" />
                 <MenuItem Header="Format Painter" Command="{x:Static ui:Commands.FormatPainter}" />
             </MenuItem>
 
             <MenuItem Header="_Insert">
-                <MenuItem Header="Image..." Command="{x:Static ui:Commands.InsertImage}" IsEnabled="False" />
-                <MenuItem Header="Table..." Command="{x:Static ui:Commands.InsertTable}" IsEnabled="False" />
-                <MenuItem Header="Link..." Command="{x:Static ui:Commands.InsertLink}" IsEnabled="False" />
-                <MenuItem Header="Horizontal Line" Command="{x:Static ui:Commands.InsertHorizontalLine}" IsEnabled="False" />
-                <MenuItem Header="Page Break" Command="{x:Static ui:Commands.InsertPageBreak}" IsEnabled="False" />
+                <MenuItem Header="Image..." Command="{x:Static ui:Commands.InsertImage}" />
+                <MenuItem Header="Table..." Command="{x:Static ui:Commands.InsertTable}" />
+                <MenuItem Header="Link..." Command="{x:Static ui:Commands.InsertLink}" InputGestureText="Ctrl+K" />
+                <MenuItem Header="Horizontal Line" Command="{x:Static ui:Commands.InsertHorizontalLine}" />
+                <MenuItem Header="Page Break" Command="{x:Static ui:Commands.InsertPageBreak}" />
                 <MenuItem Header="Special Character..." Command="{x:Static ui:Commands.InsertSpecialCharacter}" IsEnabled="False" />
                 <MenuItem Header="Date and Time" Command="{x:Static ui:Commands.InsertDateAndTime}" />
+                <Separator />
+                <MenuItem Header="Image Properties..." Command="{x:Static ui:Commands.ImageProperties}" />
+                <MenuItem Header="Edit Link..." Command="{x:Static ui:Commands.EditLink}" />
+                <MenuItem Header="Remove Link" Command="{x:Static ui:Commands.RemoveLink}" />
             </MenuItem>
 
-            <!-- Enabled only when the caret is inside a table (Phase 6). -->
-            <MenuItem Header="_Table" IsEnabled="False">
-                <MenuItem Header="Insert Row Above" />
-                <MenuItem Header="Insert Row Below" />
-                <MenuItem Header="Insert Column Left" />
-                <MenuItem Header="Insert Column Right" />
+            <!-- Every item is enabled by its command's CanExecute, which asks
+                 whether the caret is in a table - so the menu greys itself out
+                 rather than being switched on and off from code. -->
+            <MenuItem Header="_Table">
+                <MenuItem Header="Insert Row Above" Command="{x:Static ui:Commands.InsertRowAbove}" />
+                <MenuItem Header="Insert Row Below" Command="{x:Static ui:Commands.InsertRowBelow}" />
+                <MenuItem Header="Insert Column Left" Command="{x:Static ui:Commands.InsertColumnLeft}" />
+                <MenuItem Header="Insert Column Right" Command="{x:Static ui:Commands.InsertColumnRight}" />
                 <Separator />
-                <MenuItem Header="Delete Row" />
-                <MenuItem Header="Delete Column" />
-                <MenuItem Header="Delete Table" />
+                <MenuItem Header="Delete Row" Command="{x:Static ui:Commands.DeleteRow}" />
+                <MenuItem Header="Delete Column" Command="{x:Static ui:Commands.DeleteColumn}" />
+                <MenuItem Header="Delete Table" Command="{x:Static ui:Commands.DeleteTable}" />
                 <Separator />
-                <MenuItem Header="Merge Cells" />
-                <MenuItem Header="Split Cell" />
-                <MenuItem Header="Cell Shading..." />
-                <MenuItem Header="Borders On/Off" />
+                <MenuItem Header="Merge Cells" Command="{x:Static ui:Commands.MergeCells}" />
+                <MenuItem Header="Split Cell" Command="{x:Static ui:Commands.SplitCell}" />
+                <MenuItem Header="Cell Shading..." Command="{x:Static ui:Commands.CellShading}" />
+                <MenuItem Header="Borders On/Off" Command="{x:Static ui:Commands.ToggleTableBorders}" />
             </MenuItem>
 
             <MenuItem Header="T_ools">

@@ -34,6 +34,77 @@ internal static class AppHost
     /// <summary>Runs <paramref name="work"/> on the Application's thread and returns its result.</summary>
     internal static T Run<T>(Func<T> work) => Thread.Value.Invoke(work);
 
+    /// <summary>
+    /// Runs <paramref name="work"/> against an empty editor that is focused
+    /// inside a shown window.
+    /// </summary>
+    /// <remarks>
+    /// A detached <see cref="RichTextBox"/> is not a working editor, and the
+    /// ways it falls short are quiet ones: <c>Selection.Select</c> does
+    /// nothing, so a test that selects text and formats it formats nothing,
+    /// and WPF's own editing commands report <c>CanExecute</c> false, so
+    /// <c>Execute</c> returns having done nothing at all. Both look exactly
+    /// like a broken feature.
+    /// <para>
+    /// The window is positioned off-screen rather than hidden, because a
+    /// window with <c>Visibility.Hidden</c> never takes keyboard focus either.
+    /// </para>
+    /// </remarks>
+    internal static T InFocusedEditor<T>(Func<System.Windows.Controls.RichTextBox, T> work) =>
+        Run(() =>
+        {
+            var editor = NewEditor();
+
+            var window = new Window
+            {
+                Content = editor,
+                Width = 600,
+                Height = 400,
+                ShowInTaskbar = false,
+                Left = -4000,
+                Top = -4000,
+            };
+
+            try
+            {
+                window.Show();
+                window.UpdateLayout();
+                editor.Focus();
+                System.Windows.Input.Keyboard.Focus(editor);
+
+                return work(editor);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+
+    /// <summary>
+    /// An empty editor set up the way <c>EditorView.xaml</c> sets its own up.
+    /// </summary>
+    /// <remarks>
+    /// <c>AcceptsTab</c> matters more than it looks: without it WPF's
+    /// indentation commands report that they cannot execute, so a test on a
+    /// differently configured RichTextBox is testing something the user never
+    /// sees.
+    /// </remarks>
+    internal static System.Windows.Controls.RichTextBox NewEditor()
+    {
+        var editor = new System.Windows.Controls.RichTextBox(
+            new System.Windows.Documents.FlowDocument(new System.Windows.Documents.Paragraph()))
+        {
+            AcceptsTab = true,
+            IsDocumentEnabled = true,
+        };
+
+        ScratchpadLite.App.Bridge.SpProps.SetStyleName(
+            editor.Document.Blocks.FirstBlock,
+            ScratchpadLite.Core.Model.StyleSheet.NormalStyleName);
+
+        return editor;
+    }
+
     private static Dispatcher Start()
     {
         var ready = new TaskCompletionSource<Dispatcher>(TaskCreationOptions.RunContinuationsAsynchronously);

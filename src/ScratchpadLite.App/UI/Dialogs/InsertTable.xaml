@@ -2,13 +2,74 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Insert Table"
-        SizeToContent="WidthAndHeight"
-        ResizeMode="CanResizeWithGrip"
+        SizeToContent="Height"
+        Width="360"
+        ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
-        ShowInTaskbar="False">
+        ShowInTaskbar="False"
+        Background="{DynamicResource WindowBackground}"
+        Foreground="{DynamicResource WindowForeground}">
 
-    <!-- Phase 6. Shell only: the layout is built when that phase runs. -->
-    <TextBlock Margin="24" MaxWidth="460" TextWrapping="Wrap" Opacity="0.6"
-               Text="InsertTable - built in Phase 6." />
+    <!-- Section 6.9. Rows, columns and whether to draw borders. The grid
+         picker a word processor usually has is deliberately not here: it is a
+         lot of mouse handling for something two numbers say more precisely. -->
 
+    <StackPanel Margin="20">
+        <Grid Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Grid.Column="0"
+                       Text="Rows"
+                       VerticalAlignment="Center"
+                       Margin="0,0,12,8" />
+
+            <TextBox x:Name="RowsBox"
+                     Grid.Row="0" Grid.Column="1"
+                     Text="2"
+                     MaxLength="3"
+                     Margin="0,0,0,8"
+                     PreviewTextInput="OnDigitsOnly" />
+
+            <TextBlock Grid.Row="1" Grid.Column="0"
+                       Text="Columns"
+                       VerticalAlignment="Center"
+                       Margin="0,0,12,0" />
+
+            <TextBox x:Name="ColumnsBox"
+                     Grid.Row="1" Grid.Column="1"
+                     Text="2"
+                     MaxLength="3"
+                     PreviewTextInput="OnDigitsOnly" />
+        </Grid>
+
+        <CheckBox x:Name="BordersBox"
+                  Content="Draw borders"
+                  IsChecked="True"
+                  Margin="0,0,0,8" />
+
+        <TextBlock x:Name="Problem"
+                   Foreground="#C00000"
+                   TextWrapping="Wrap"
+                   Visibility="Collapsed"
+                   Margin="0,0,0,8" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+            <Button Content="Insert"
+                    MinWidth="90"
+                    Margin="0,0,8,0"
+                    IsDefault="True"
+                    Click="OnInsert" />
+
+            <Button Content="Cancel"
+                    MinWidth="80"
+                    IsCancel="True" />
+        </StackPanel>
+    </StackPanel>
 </Window>

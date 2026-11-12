@@ -175,6 +175,9 @@ public partial class Toolbars : UserControl
         AlignRightButton.Click += (_, _) => Run(rtb => FormatCommands.SetAlignment(rtb, Align.Right));
         AlignJustifyButton.Click += (_, _) => Run(rtb => FormatCommands.SetAlignment(rtb, Align.Justify));
 
+        BulletsButton.Click += (_, _) => Run(ListCommands.ToggleBullets);
+        NumberingButton.Click += (_, _) => Run(ListCommands.ToggleNumbering);
+
         IndentButton.Click += (_, _) => Run(rtb => EditingCommands.IncreaseIndentation.Execute(null, rtb));
         OutdentButton.Click += (_, _) => Run(rtb => EditingCommands.DecreaseIndentation.Execute(null, rtb));
 
@@ -183,6 +186,14 @@ public partial class Toolbars : UserControl
         {
             item.Click += OnLineSpacingClick;
         }
+
+        // ---- The insert buttons ----
+        // These three go through the window's commands rather than straight to
+        // the editor, because each one opens a dialog that needs an owner -
+        // and the toolbar is not a window.
+        InsertImageButton.Click += (_, _) => Fire(Commands.InsertImage);
+        InsertTableButton.Click += (_, _) => Fire(Commands.InsertTable);
+        InsertLinkButton.Click += (_, _) => Fire(Commands.InsertLink);
 
         ClearFormattingButton.Click += (_, _) => Run(rtb => FormatCommands.ClearFormatting(rtb, Styles));
 
@@ -291,5 +302,28 @@ public partial class Toolbars : UserControl
 
         action(editor.Editor);
         editor.Editor.Focus();
+    }
+
+    /// <summary>
+    /// Raises one of the window's commands, for a button whose work needs a
+    /// dialog.
+    /// </summary>
+    /// <remarks>
+    /// The editor is given as the command target so the routed command travels
+    /// up from it and finds the window's binding - a toolbar button is not in
+    /// the editor's tree, and without a target the command would be looked for
+    /// from wherever the keyboard focus happens to be.
+    /// </remarks>
+    private void Fire(RoutedUICommand command)
+    {
+        if (_updating || Target is not { } editor)
+        {
+            return;
+        }
+
+        if (command.CanExecute(null, editor.Editor))
+        {
+            command.Execute(null, editor.Editor);
+        }
     }
 }

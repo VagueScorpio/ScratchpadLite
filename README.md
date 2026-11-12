@@ -5,13 +5,14 @@ no .NET runtime, no Office, nothing else needed on the PC.
 
 Windows 10 (version 1809 or later) and Windows 11, x64.
 
-> **Status: Phase 5 — every format opens and saves.**
-> `.docx`, `.odt`, `.rtf`, `.md` and `.txt` all open and save, with everything
-> the editor can do surviving the trip as far as each format allows - the
-> [fidelity matrix](USER_GUIDE.md#what-survives-each-format) is measured rather
-> than promised. The `fonts/` folder takes almost any font format. Tabs, find
-> and spell check are still ahead — [Build Phases](#build-phases) tracks what
-> lands when.
+> **Status: Phase 6 — lists, tables, pictures and links.**
+> Lists, tables, pictures and links can now be made and edited, not just
+> opened: nested lists with Tab, the whole Table menu, drag handles on a
+> picture, Ctrl+K for links. `.docx`, `.odt`, `.rtf`, `.md` and `.txt` all open
+> and save, and the [fidelity matrix](USER_GUIDE.md#what-survives-each-format)
+> is measured rather than promised. The `fonts/` folder takes almost any font
+> format. Tabs, find and spell check are still ahead — [Build
+> Phases](#build-phases) tracks what lands when.
 
 ## What it will do
 
@@ -168,7 +169,7 @@ so compression buys nothing a user would notice and costs something they would.
 | 3 | v1.3 | More font formats: Type 1, Mac containers, EOT, Type 42 — **done** |
 | 4 | v1.4 | IR, the bridge, TXT and DOCX — **done** |
 | 5 | v1.5 | Markdown, ODT, RTF — **done** |
-| 6 | v1.6 | Lists, tables, images, links |
+| 6 | v1.6 | Lists, tables, images, links — **done** |
 | 7 | v1.7 | Tabs, find and replace, spell check |
 | 8 | v1.8 | Recovery, AutoSave, themes, print, single instance |
 | 9 | v1.9 | Release: clean-PC test, documents, full QA |

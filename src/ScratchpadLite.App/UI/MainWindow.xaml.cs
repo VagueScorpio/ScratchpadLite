@@ -225,6 +225,72 @@ public partial class MainWindow : Window
             rtb.CaretPosition.InsertTextInRun(
                 DateTime.Now.ToString("d MMMM yyyy HH:mm", CultureInfo.CurrentCulture)));
 
+        Bind(Commands.InsertImage, _ => InsertImage());
+        Bind(Commands.InsertTable, _ => InsertTable());
+        Bind(Commands.InsertHorizontalLine, _ => InsertHorizontalLine());
+        Bind(Commands.InsertPageBreak, _ => InsertPageBreak());
+
+        // ---- Lists ----
+        Bind(Commands.ToggleBulletList, _ => ListCommands.ToggleBullets(rtb));
+        Bind(Commands.ToggleNumberList, _ => ListCommands.ToggleNumbering(rtb));
+
+        Bind(
+            Commands.RestartNumbering,
+            _ => ListCommands.RestartNumbering(rtb),
+            () => ListCommands.CaretIsInNumberedList(rtb));
+
+        Bind(
+            Commands.ContinueNumbering,
+            _ => ListCommands.ContinueNumbering(rtb),
+            () => ListCommands.CaretIsInNumberedList(rtb));
+
+        // ---- Table ----
+        // Every one of these asks the same question, so the Table menu greys
+        // itself out as a whole when the caret leaves a table.
+        bool InTable() => TableCommands.CaretIsInTable(rtb);
+
+        Bind(Commands.InsertRowAbove, _ => TableCommands.InsertRow(rtb, above: true), InTable);
+        Bind(Commands.InsertRowBelow, _ => TableCommands.InsertRow(rtb, above: false), InTable);
+        Bind(Commands.InsertColumnLeft, _ => TableCommands.InsertColumn(rtb, left: true), InTable);
+        Bind(Commands.InsertColumnRight, _ => TableCommands.InsertColumn(rtb, left: false), InTable);
+        Bind(Commands.DeleteRow, _ => TableCommands.DeleteRow(rtb), InTable);
+        Bind(Commands.DeleteColumn, _ => TableCommands.DeleteColumn(rtb), InTable);
+        Bind(Commands.DeleteTable, _ => TableCommands.DeleteTable(rtb), InTable);
+        Bind(Commands.CellShading, _ => PickCellShading(), InTable);
+        Bind(Commands.ToggleTableBorders, _ => TableCommands.ToggleBorders(rtb), InTable);
+
+        Bind(Commands.MergeCells, _ => TableCommands.Merge(rtb), () => TableCommands.CanMerge(rtb));
+        Bind(Commands.SplitCell, _ => TableCommands.Split(rtb), () => TableCommands.CanSplit(rtb));
+
+        // ---- Images and links ----
+        Bind(
+            Commands.ImageProperties,
+            _ => ShowImageProperties(),
+            () => ImageSupport.ImageAt(rtb) is not null);
+
+        Bind(Commands.InsertLink, _ => ShowLinkDialog());
+
+        Bind(
+            Commands.EditLink,
+            _ => ShowLinkDialog(),
+            () => LinkSupport.LinkAt(rtb) is not null);
+
+        Bind(
+            Commands.RemoveLink,
+            _ => LinkSupport.Remove(rtb),
+            () => LinkSupport.LinkAt(rtb) is not null);
+
+        Bind(
+            Commands.OpenLink,
+            _ =>
+            {
+                if (LinkSupport.LinkAt(rtb) is { } link)
+                {
+                    LinkSupport.Open(link, this);
+                }
+            },
+            () => LinkSupport.LinkAt(rtb) is not null);
+
         // ---- Tools ----
         Bind(Commands.WordCount, _ => ShowWordCount());
         Bind(Commands.ReloadFonts, _ => ReloadFonts());
@@ -462,6 +528,211 @@ public partial class MainWindow : Window
 
     private void ShowFontReport() =>
         new Dialogs.FontReport { Owner = this }.ShowDialog();
+
+    // ------------------------------------------- insert: Section 6.9 ---------
+
+    private void InsertImage()
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Insert Image",
+            Filter = ImageSupport.OpenFilter,
+            CheckFileExists = true,
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            ImageSupport.Insert(Editor.Editor, dialog.FileName);
+        }
+        catch (ImageSupport.ImageException ex)
+        {
+            // A picture that will not load is the user's problem to solve, not
+            // a crash: they chose the file, so they can choose another.
+            MessageBox.Show(this, ex.Message, "Insert Image", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void InsertTable()
+    {
+        var dialog = new Dialogs.InsertTable { Owner = this };
+
+        if (dialog.ShowDialog() == true)
+        {
+            TableCommands.Insert(Editor.Editor, dialog.Rows, dialog.Columns, dialog.Borders);
+        }
+    }
+
+    /// <summary>
+    /// A horizontal rule, built the same way the bridge builds one so the
+    /// walker recognises it (Section 6.4).
+    /// </summary>
+    private void InsertHorizontalLine()
+    {
+        var rtb = Editor.Editor;
+
+        rtb.BeginChange();
+
+        try
+        {
+            var container = new System.Windows.Documents.BlockUIContainer(
+                new Separator { Margin = new Thickness(0, Units.PointsToDips(6), 0, Units.PointsToDips(6)) });
+
+            Bridge.SpProps.SetStyleName(container, Bridge.SpProps.HorizontalRuleStyleName);
+
+            var paragraph = rtb.CaretPosition.Paragraph;
+
+            if (paragraph?.SiblingBlocks is { } siblings)
+            {
+                siblings.InsertAfter(paragraph, container);
+
+                // Somewhere to carry on typing, since a rule cannot hold a
+                // caret.
+                if (container.NextBlock is null)
+                {
+                    siblings.InsertAfter(container, new System.Windows.Documents.Paragraph());
+                }
+
+                if (container.NextBlock is { } next)
+                {
+                    rtb.CaretPosition = next.ContentStart;
+                }
+            }
+            else
+            {
+                rtb.Document.Blocks.Add(container);
+                rtb.Document.Blocks.Add(new System.Windows.Documents.Paragraph());
+            }
+        }
+        finally
+        {
+            rtb.EndChange();
+        }
+    }
+
+    /// <summary>
+    /// Starts the paragraph at the caret on a new page.
+    /// </summary>
+    /// <remarks>
+    /// A page break in this app is a property of a paragraph rather than a
+    /// character in the text, because that is what .docx and .odt both carry
+    /// and what the IR records (Section 4.2). So "insert a page break" means
+    /// "break before the paragraph the caret is in", and a second press on the
+    /// same paragraph takes it off again.
+    /// </remarks>
+    private void InsertPageBreak()
+    {
+        var rtb = Editor.Editor;
+
+        if (rtb.CaretPosition.Paragraph is not { } paragraph)
+        {
+            return;
+        }
+
+        rtb.BeginChange();
+
+        try
+        {
+            paragraph.BreakPageBefore = !paragraph.BreakPageBefore;
+        }
+        finally
+        {
+            rtb.EndChange();
+        }
+    }
+
+    /// <summary>
+    /// The cell shading colour, through the same palette the toolbar uses.
+    /// </summary>
+    /// <remarks>
+    /// Hosted in a small window rather than being another dialog of its own:
+    /// the picker already has the palette, the recent colours and the hex box,
+    /// and a second copy of all that would be a second place for them to
+    /// disagree.
+    /// </remarks>
+    private void PickCellShading()
+    {
+        var picker = new Controls.ColorPicker
+        {
+            Glyph = "",
+            ClearLabel = "No Shading",
+            Margin = new Thickness(12),
+        };
+
+        picker.ShowCurrent(TableCommands.ShadingAt(Editor.Editor));
+
+        var window = new Window
+        {
+            Title = "Cell Shading",
+            Owner = this,
+            Content = picker,
+            SizeToContent = SizeToContent.WidthAndHeight,
+            ResizeMode = ResizeMode.NoResize,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            ShowInTaskbar = false,
+        };
+
+        picker.ColorChosen += (_, color) =>
+        {
+            TableCommands.SetShading(Editor.Editor, color);
+            window.DialogResult = true;
+        };
+
+        window.ShowDialog();
+    }
+
+    private void ShowImageProperties()
+    {
+        if (ImageSupport.ImageAt(Editor.Editor) is not { } image)
+        {
+            return;
+        }
+
+        var dialog = new Dialogs.ImageProperties { Owner = this };
+        var (naturalWidth, naturalHeight) = ImageSupport.NaturalSize(image);
+        var alt = image.Tag is Bridge.SpProps.ImagePayload payload ? payload.Alt : "";
+
+        dialog.Describe(
+            Units.DipsToPoints(double.IsNaN(image.Width) ? image.ActualWidth : image.Width),
+            Units.DipsToPoints(double.IsNaN(image.Height) ? image.ActualHeight : image.Height),
+            alt,
+            naturalWidth,
+            naturalHeight);
+
+        if (dialog.ShowDialog() == true)
+        {
+            ImageSupport.SetProperties(Editor.Editor, image, dialog.WidthPt, dialog.HeightPt, dialog.Alt);
+        }
+    }
+
+    private void ShowLinkDialog()
+    {
+        var rtb = Editor.Editor;
+        var editing = LinkSupport.LinkAt(rtb) is not null;
+        var (url, text) = LinkSupport.Current(rtb);
+
+        var dialog = new Dialogs.InsertLink { Owner = this };
+
+        dialog.Describe(url, text, editing);
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        if (dialog.Removed)
+        {
+            LinkSupport.Remove(rtb);
+
+            return;
+        }
+
+        LinkSupport.InsertOrEdit(rtb, dialog.Url, dialog.DisplayText);
+    }
 
     /// <summary>
     /// Lists the fonts a document asked for that this PC cannot show

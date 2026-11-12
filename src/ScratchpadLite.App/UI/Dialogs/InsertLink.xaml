@@ -1,14 +1,58 @@
 <Window x:Class="ScratchpadLite.App.UI.Dialogs.InsertLink"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Insert Link"
-        SizeToContent="WidthAndHeight"
-        ResizeMode="CanResizeWithGrip"
+        Title="Link"
+        SizeToContent="Height"
+        Width="460"
+        ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
-        ShowInTaskbar="False">
+        ShowInTaskbar="False"
+        Background="{DynamicResource WindowBackground}"
+        Foreground="{DynamicResource WindowForeground}">
 
-    <!-- Phase 6. Shell only: the layout is built when that phase runs. -->
-    <TextBlock Margin="24" MaxWidth="460" TextWrapping="Wrap" Opacity="0.6"
-               Text="InsertLink - built in Phase 6." />
+    <!-- Section 6.9, Ctrl+K. The address comes first because it is the part
+         that must be right; the text is optional and falls back to it. -->
 
+    <StackPanel Margin="20">
+        <TextBlock Text="Address" Margin="0,0,0,4" />
+
+        <TextBox x:Name="UrlBox"
+                 Margin="0,0,0,12"
+                 TextChanged="OnUrlChanged" />
+
+        <TextBlock Text="Text to show" Margin="0,0,0,4" />
+
+        <TextBox x:Name="TextBox" Margin="0,0,0,8" />
+
+        <TextBlock x:Name="Note"
+                   TextWrapping="Wrap"
+                   Opacity="0.75"
+                   Margin="0,0,0,8" />
+
+        <TextBlock x:Name="Problem"
+                   Foreground="#C00000"
+                   TextWrapping="Wrap"
+                   Visibility="Collapsed"
+                   Margin="0,0,0,8" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+            <Button x:Name="RemoveButton"
+                    Content="Remove Link"
+                    MinWidth="110"
+                    Margin="0,0,8,0"
+                    Visibility="Collapsed"
+                    Click="OnRemove" />
+
+            <Button x:Name="OkButton"
+                    Content="OK"
+                    MinWidth="90"
+                    Margin="0,0,8,0"
+                    IsDefault="True"
+                    Click="OnOk" />
+
+            <Button Content="Cancel"
+                    MinWidth="80"
+                    IsCancel="True" />
+        </StackPanel>
+    </StackPanel>
 </Window>

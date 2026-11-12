@@ -180,6 +180,63 @@ public static class Commands
 
     public static readonly RoutedUICommand InsertDateAndTime = Make("Date and Time", nameof(InsertDateAndTime));
 
+    // ---------------------------------------------------------------- List --
+    // Bullets and numbering themselves are EditingCommands.ToggleBullets and
+    // ToggleNumbering, which the RichTextBox already handles. These are the
+    // parts WPF has no command for (Section 6.9).
+
+    public static readonly RoutedUICommand ToggleBulletList =
+        Make("Bulleted List", nameof(ToggleBulletList), Key(System.Windows.Input.Key.D8, CtrlShift));
+
+    public static readonly RoutedUICommand ToggleNumberList =
+        Make("Numbered List", nameof(ToggleNumberList), Key(System.Windows.Input.Key.D7, CtrlShift));
+
+    public static readonly RoutedUICommand RestartNumbering =
+        Make("Restart Numbering", nameof(RestartNumbering));
+
+    public static readonly RoutedUICommand ContinueNumbering =
+        Make("Continue Numbering", nameof(ContinueNumbering));
+
+    // --------------------------------------------------------------- Table --
+    // WPF has no table editing commands at all, so every one of these is this
+    // project's own (Section 6.9).
+
+    public static readonly RoutedUICommand InsertRowAbove = Make("Insert Row Above", nameof(InsertRowAbove));
+
+    public static readonly RoutedUICommand InsertRowBelow = Make("Insert Row Below", nameof(InsertRowBelow));
+
+    public static readonly RoutedUICommand InsertColumnLeft =
+        Make("Insert Column Left", nameof(InsertColumnLeft));
+
+    public static readonly RoutedUICommand InsertColumnRight =
+        Make("Insert Column Right", nameof(InsertColumnRight));
+
+    public static readonly RoutedUICommand DeleteRow = Make("Delete Row", nameof(DeleteRow));
+
+    public static readonly RoutedUICommand DeleteColumn = Make("Delete Column", nameof(DeleteColumn));
+
+    public static readonly RoutedUICommand DeleteTable = Make("Delete Table", nameof(DeleteTable));
+
+    public static readonly RoutedUICommand MergeCells = Make("Merge Cells", nameof(MergeCells));
+
+    public static readonly RoutedUICommand SplitCell = Make("Split Cell", nameof(SplitCell));
+
+    public static readonly RoutedUICommand CellShading = Make("Cell Shading...", nameof(CellShading));
+
+    public static readonly RoutedUICommand ToggleTableBorders =
+        Make("Borders On/Off", nameof(ToggleTableBorders));
+
+    // --------------------------------------------------- Images and links --
+
+    public static readonly RoutedUICommand ImageProperties =
+        Make("Image Properties...", nameof(ImageProperties));
+
+    public static readonly RoutedUICommand EditLink = Make("Edit Link...", nameof(EditLink));
+
+    public static readonly RoutedUICommand RemoveLink = Make("Remove Link", nameof(RemoveLink));
+
+    public static readonly RoutedUICommand OpenLink = Make("Open Link", nameof(OpenLink));
+
     // --------------------------------------------------------------- Tools --
 
     public static readonly RoutedUICommand ToggleSpellCheck =

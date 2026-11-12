@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
     <!-- THE single source of truth for the app version (Section 0: Versioning). -->
-    <Version>1.5</Version>
+    <Version>1.6</Version>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>

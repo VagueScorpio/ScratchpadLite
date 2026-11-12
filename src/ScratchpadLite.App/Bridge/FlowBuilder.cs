@@ -299,7 +299,7 @@ internal static class FlowBuilder
     /// nested lists are readable. Numbers use whatever format the file asked
     /// for, falling back to the same depth cycle.
     /// </remarks>
-    private static TextMarkerStyle MarkerFor(ListInfo info)
+    internal static TextMarkerStyle MarkerFor(ListInfo info)
     {
         if (info.Kind == ListKind.Bullet)
         {

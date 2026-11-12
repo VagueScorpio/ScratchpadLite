@@ -166,28 +166,46 @@ internal static class OdtWriter
             return name;
         }
 
-        /// <summary>The name of a table-cell style with this shading.</summary>
-        internal string ForCell(string shading)
+        /// <summary>
+        /// The name of a table-cell style with this shading and border.
+        /// </summary>
+        /// <remarks>
+        /// Every cell gets one, even a plain cell in a borderless table. ODT
+        /// has nowhere else to say whether a cell is bordered: writing the
+        /// style only for shaded cells meant a table saved with its borders
+        /// turned off came back with them on, because the reader had nothing
+        /// to read.
+        /// </remarks>
+        internal string ForCell(string? shading, bool borders)
         {
-            var color = OdtXml.Color(shading) ?? "#ffffff";
+            var color = OdtXml.Color(shading);
+            var key = (color ?? "none") + "|" + borders;
 
-            if (_cellNames.TryGetValue(color, out var existing))
+            if (_cellNames.TryGetValue(key, out var existing))
             {
                 return existing;
             }
 
             var name = "TC" + (_cellNames.Count + 1);
-            _cellNames[color] = name;
+            _cellNames[key] = name;
+
+            var properties = new XElement(
+                OdtXml.Style + "table-cell-properties",
+                new XAttribute(OdtXml.Fo + "padding", "0.05in"),
+                new XAttribute(
+                    OdtXml.Fo + "border",
+                    borders ? "0.5pt solid #808080" : "none"));
+
+            if (color is not null)
+            {
+                properties.Add(new XAttribute(OdtXml.Fo + "background-color", color));
+            }
 
             _elements.Add(new XElement(
                 OdtXml.Style + "style",
                 new XAttribute(OdtXml.Style + "name", name),
                 new XAttribute(OdtXml.Style + "family", "table-cell"),
-                new XElement(
-                    OdtXml.Style + "table-cell-properties",
-                    new XAttribute(OdtXml.Fo + "background-color", color),
-                    new XAttribute(OdtXml.Fo + "padding", "0.05in"),
-                    new XAttribute(OdtXml.Fo + "border", "0.5pt solid #808080"))));
+                properties));
 
             return name;
         }
@@ -776,14 +794,11 @@ internal static class OdtWriter
 
                 rowElement.Add(cellElement);
 
-                // Shading is on the cell's own automatic style in ODT; writing
-                // it inline is not allowed.
-                if (cell.Shading is not null)
-                {
-                    cellElement.Add(new XAttribute(
-                        OdtXml.Table + "style-name",
-                        automatic.ForCell(cell.Shading)));
-                }
+                // Shading and borders are both on the cell's own automatic
+                // style in ODT; writing either inline is not allowed.
+                cellElement.Add(new XAttribute(
+                    OdtXml.Table + "style-name",
+                    automatic.ForCell(cell.Shading, table.Borders)));
 
                 column += colSpan;
             }

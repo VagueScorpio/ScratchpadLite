@@ -308,10 +308,15 @@ internal static class OdtReader
             .Select(c => context.Styles.ColumnWidthFor(c.Attribute(OdtXml.Table + "style-name")?.Value) ?? 0)
             .ToList();
 
+        // Borders come from the cells, since that is the only place ODT puts
+        // them. A table counts as bordered when any of its cells is.
+        var bordered = element.Descendants(OdtXml.Table + "table-cell")
+            .Any(c => context.Styles.CellHasBorder(c.Attribute(OdtXml.Table + "style-name")?.Value));
+
         return new IrTable(
             rows,
             widths.Count > 0 && widths.Any(w => w > 0) ? widths : null,
-            Borders: true);
+            Borders: bordered);
     }
 
     private static List<Model.Inline> ReadInlines(

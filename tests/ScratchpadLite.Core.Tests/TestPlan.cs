@@ -21,6 +21,13 @@ namespace ScratchpadLite.Core.Tests;
 ///   <item>OdtFormatTests: mimetype is the first entry and uncompressed; the XML is well formed; style references resolve.</item>
 /// </list>
 ///
+/// Phase 6 - lists, tables, images, links
+/// <list type="bullet">
+///   <item>ListAndTableTests: toggling and nesting lists, the marker per level, Tab and Shift+Tab, Enter on an empty item, restart and continue numbering; inserting a table, rows and columns in and out, merging and splitting, shading, borders, Tab between cells.</item>
+///   <item>ImageAndLinkTests: a picture keeps its exact bytes, is scaled to the text column, is stored once per document however many times it is used; the properties dialog; the rule about which link schemes open without asking.</item>
+///   <item>EditedContentRoundTripTests: everything the editing commands build, written and read back in every format that claims to carry it. This is the phase gate.</item>
+/// </list>
+///
 /// Phase 2 - fonts
 /// <list type="bullet">
 ///   <item>FontScannerTests: every type is sorted correctly by magic bytes even when the extension lies; oversize files are skipped.</item>

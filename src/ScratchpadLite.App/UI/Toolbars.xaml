@@ -65,10 +65,8 @@
             <ToggleButton x:Name="AlignJustifyButton" ToolTip="Justify (Ctrl+J)" Style="{StaticResource IconToggle}" Content="&#xE8E1;" />
             <Separator />
 
-            <!-- Lists and the insert buttons are Phase 6; they sit here now so
-                 the toolbar does not get rearranged later. -->
-            <Button x:Name="BulletsButton" ToolTip="Bulleted list (Ctrl+Shift+8)" Style="{StaticResource IconButton}" Content="&#xE8FD;" IsEnabled="False" />
-            <Button x:Name="NumberingButton" ToolTip="Numbered list (Ctrl+Shift+7)" Style="{StaticResource IconButton}" Content="&#xE8FE;" IsEnabled="False" />
+            <Button x:Name="BulletsButton" ToolTip="Bulleted list (Ctrl+Shift+8)" Style="{StaticResource IconButton}" Content="&#xE8FD;" />
+            <Button x:Name="NumberingButton" ToolTip="Numbered list (Ctrl+Shift+7)" Style="{StaticResource IconButton}" Content="&#xE8FE;" />
             <Button x:Name="OutdentButton" ToolTip="Decrease indent" Style="{StaticResource IconButton}" Content="&#xE7FE;" />
             <Button x:Name="IndentButton" ToolTip="Increase indent" Style="{StaticResource IconButton}" Content="&#xE7FD;" />
             <Separator />
@@ -86,9 +84,9 @@
                 </Button.ContextMenu>
             </Button>
             <Separator />
-            <Button x:Name="InsertImageButton" ToolTip="Insert image" Style="{StaticResource IconButton}" Content="&#xE91B;" IsEnabled="False" />
-            <Button x:Name="InsertTableButton" ToolTip="Insert table" Style="{StaticResource IconButton}" Content="&#xE80A;" IsEnabled="False" />
-            <Button x:Name="InsertLinkButton" ToolTip="Insert link (Ctrl+K)" Style="{StaticResource IconButton}" Content="&#xE71B;" IsEnabled="False" />
+            <Button x:Name="InsertImageButton" ToolTip="Insert image" Style="{StaticResource IconButton}" Content="&#xE91B;" />
+            <Button x:Name="InsertTableButton" ToolTip="Insert table" Style="{StaticResource IconButton}" Content="&#xE80A;" />
+            <Button x:Name="InsertLinkButton" ToolTip="Insert link (Ctrl+K)" Style="{StaticResource IconButton}" Content="&#xE71B;" />
             <Separator />
             <Button x:Name="ClearFormattingButton" ToolTip="Clear formatting (Ctrl+Space)" Style="{StaticResource IconButton}" Content="&#xE75C;" />
             <ToggleButton x:Name="FormatPainterButton" ToolTip="Format painter (double-click to keep on)" Style="{StaticResource IconToggle}" Content="&#xE7A8;" />

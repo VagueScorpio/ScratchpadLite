@@ -1,6 +1,7 @@
 <UserControl x:Class="ScratchpadLite.App.Editor.EditorView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:ScratchpadLite.App.UI"
              Focusable="False">
 
     <!-- Section 6.8. The paper sits centred on a darker surface so it reads as
@@ -46,7 +47,75 @@
                                  HorizontalScrollBarVisibility="Disabled"
                                  VerticalScrollBarVisibility="Disabled"
                                  SelectionChanged="OnSelectionChanged"
-                                 TextChanged="OnTextChanged" />
+                                 TextChanged="OnTextChanged"
+                                 PreviewKeyDown="OnPreviewKeyDown"
+                                 PreviewMouseLeftButtonDown="OnPreviewMouseLeftButtonDown"
+                                 PreviewMouseMove="OnPreviewMouseMove"
+                                 MouseLeftButtonDown="OnMouseDownForTables"
+                                 MouseLeftButtonUp="OnMouseUpForTables">
+
+                        <!-- Section 6.9 puts the numbering controls and the
+                             table actions here, where the thing they act on is
+                             under the pointer. Every item is enabled by its
+                             command, so the menu greys out what does not apply
+                             rather than hiding it and moving everything else
+                             around. The commands themselves are bound by
+                             MainWindow, which is why this menu can live in the
+                             editor without knowing about them. -->
+                        <RichTextBox.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="Cut" Command="Cut" />
+                                <MenuItem Header="Copy" Command="Copy" />
+                                <MenuItem Header="Paste" Command="Paste" />
+                                <MenuItem Header="Paste as Plain Text"
+                                          Command="{x:Static ui:Commands.PastePlainText}" />
+                                <Separator />
+                                <MenuItem Header="Link..."
+                                          Command="{x:Static ui:Commands.InsertLink}" />
+                                <MenuItem Header="Edit Link..."
+                                          Command="{x:Static ui:Commands.EditLink}" />
+                                <MenuItem Header="Open Link"
+                                          Command="{x:Static ui:Commands.OpenLink}" />
+                                <MenuItem Header="Remove Link"
+                                          Command="{x:Static ui:Commands.RemoveLink}" />
+                                <Separator />
+                                <MenuItem Header="Image Properties..."
+                                          Command="{x:Static ui:Commands.ImageProperties}" />
+                                <Separator />
+                                <MenuItem Header="Restart Numbering"
+                                          Command="{x:Static ui:Commands.RestartNumbering}" />
+                                <MenuItem Header="Continue Numbering"
+                                          Command="{x:Static ui:Commands.ContinueNumbering}" />
+                                <Separator />
+                                <MenuItem Header="Table">
+                                    <MenuItem Header="Insert Row Above"
+                                              Command="{x:Static ui:Commands.InsertRowAbove}" />
+                                    <MenuItem Header="Insert Row Below"
+                                              Command="{x:Static ui:Commands.InsertRowBelow}" />
+                                    <MenuItem Header="Insert Column Left"
+                                              Command="{x:Static ui:Commands.InsertColumnLeft}" />
+                                    <MenuItem Header="Insert Column Right"
+                                              Command="{x:Static ui:Commands.InsertColumnRight}" />
+                                    <Separator />
+                                    <MenuItem Header="Delete Row"
+                                              Command="{x:Static ui:Commands.DeleteRow}" />
+                                    <MenuItem Header="Delete Column"
+                                              Command="{x:Static ui:Commands.DeleteColumn}" />
+                                    <MenuItem Header="Delete Table"
+                                              Command="{x:Static ui:Commands.DeleteTable}" />
+                                    <Separator />
+                                    <MenuItem Header="Merge Cells"
+                                              Command="{x:Static ui:Commands.MergeCells}" />
+                                    <MenuItem Header="Split Cell"
+                                              Command="{x:Static ui:Commands.SplitCell}" />
+                                    <MenuItem Header="Cell Shading..."
+                                              Command="{x:Static ui:Commands.CellShading}" />
+                                    <MenuItem Header="Borders On/Off"
+                                              Command="{x:Static ui:Commands.ToggleTableBorders}" />
+                                </MenuItem>
+                            </ContextMenu>
+                        </RichTextBox.ContextMenu>
+                    </RichTextBox>
                 </Border>
             </Grid>
         </ScrollViewer>

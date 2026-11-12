@@ -186,19 +186,38 @@ public partial class EditorView : UserControl
     /// thing (Section 8.3).
     /// </summary>
     /// <remarks>
-    /// Only Ctrl+U so far. WPF binds it to <c>EditingCommands.ToggleUnderline</c>,
-    /// which can only produce a plain single underline; this app has five kinds
-    /// (Section 6.8), so <see cref="UI.Commands.SetUnderline"/> takes the
-    /// gesture over. Ctrl+B, Ctrl+I, the four alignment shortcuts and the indent
-    /// shortcuts are deliberately left alone: WPF's own commands already do
-    /// exactly what is wanted, and reimplementing them would only add ways to
-    /// get them wrong.
+    /// Three of them.
+    /// <list type="bullet">
+    ///   <item>
+    ///     Ctrl+U. WPF binds it to <c>EditingCommands.ToggleUnderline</c>,
+    ///     which can only produce a plain single underline; this app has five
+    ///     kinds (Section 6.8), so <see cref="UI.Commands.SetUnderline"/>
+    ///     takes the gesture over.
+    ///   </item>
+    ///   <item>
+    ///     Ctrl+Shift+L and Ctrl+Shift+N, WPF's own bullet and number
+    ///     toggles. Two reasons. The shortcuts this app uses are the ones
+    ///     everybody knows from Word, Ctrl+Shift+8 and Ctrl+Shift+7
+    ///     (Section 8.3), so WPF's would be two more ways to do the same
+    ///     thing. And WPF's toggles alone leave every level of a nested list
+    ///     with the same marker, so <see cref="ListCommands"/> wraps them
+    ///     and fixes the markers afterwards (Section 6.9) - which means the
+    ///     wrapper has to get the keystroke, not the raw command.
+    ///   </item>
+    /// </list>
+    /// Ctrl+B, Ctrl+I, the four alignment shortcuts and the indent shortcuts
+    /// are deliberately left alone: WPF's own commands already do exactly what
+    /// is wanted, and reimplementing them would only add ways to get them
+    /// wrong.
     /// </remarks>
     internal void RemoveConflictingBuiltInBindings()
     {
         var toRemove = EditorBox.InputBindings
             .OfType<KeyBinding>()
-            .Where(b => b.Key == Key.U && b.Modifiers == ModifierKeys.Control)
+            .Where(b =>
+                (b.Key == Key.U && b.Modifiers == ModifierKeys.Control)
+                || (b.Key is Key.L or Key.N
+                    && b.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift)))
             .ToList();
 
         foreach (var binding in toRemove)
@@ -258,8 +277,117 @@ public partial class EditorView : UserControl
             (Action)(() =>
             {
                 _formatReadoutQueued = false;
+
+                // The resize handles follow the caret, and this is the only
+                // place that knows it moved. At background priority with the
+                // rest of the readout, because it walks up from the caret and
+                // must not run per keystroke either (Section 2.1).
+                ImageSupport.UpdateHandles(EditorBox);
+
                 FormatStateChanged?.Invoke(this, ReadFormatState());
             }));
+    }
+
+    /// <summary>
+    /// The keys that mean something different inside a list or a table
+    /// (Section 6.9).
+    /// </summary>
+    /// <remarks>
+    /// Each handler says whether it dealt with the key, and the event is only
+    /// marked handled when one did - so Tab still inserts a tab in ordinary
+    /// text, and Enter still starts a paragraph.
+    /// <para>
+    /// A table is checked before a list, because a list inside a table cell
+    /// should indent on Tab rather than jump to the next cell: the inner
+    /// structure wins, which is what Word does too. Hence the order: list
+    /// first, then table.
+    /// </para>
+    /// </remarks>
+    private void OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case Key.Tab when Keyboard.Modifiers == ModifierKeys.None:
+                e.Handled = ListCommands.Indent(EditorBox)
+                            || TableCommands.MoveToNextCell(EditorBox, backwards: false);
+                break;
+
+            case Key.Tab when Keyboard.Modifiers == ModifierKeys.Shift:
+                e.Handled = ListCommands.Outdent(EditorBox)
+                            || TableCommands.MoveToNextCell(EditorBox, backwards: true);
+                break;
+
+            case Key.Return when Keyboard.Modifiers == ModifierKeys.None:
+                e.Handled = ListCommands.EndListOnEmptyItem(EditorBox);
+                break;
+
+            case Key.Delete or Key.Back when ImageSupport.ImageAt(EditorBox) is not null:
+                // The handles have to come off before the picture goes, or the
+                // adorner is left pointing at an element no longer in the tree.
+                ImageSupport.Remove();
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Ctrl+click follows a link (Section 6.9).
+    /// </summary>
+    /// <remarks>
+    /// Only ever on Ctrl+click. A plain click inside a link has to put the
+    /// caret there, because the text of a link is text and has to be editable;
+    /// an editor that opened a browser every time someone tried to fix a typo
+    /// in a link would be unusable.
+    /// </remarks>
+    private void OnPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (Keyboard.Modifiers != ModifierKeys.Control)
+        {
+            return;
+        }
+
+        var at = EditorBox.GetPositionFromPoint(e.GetPosition(EditorBox), snapToText: true);
+
+        if (LinkSupport.Containing(at) is { } link)
+        {
+            LinkSupport.Open(link, Window.GetWindow(this));
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>
+    /// Remembers which cell a drag began in, for the table commands
+    /// (Section 6.9).
+    /// </summary>
+    private void OnMouseDownForTables(object sender, MouseButtonEventArgs e) =>
+        TableCommands.BeginDrag(
+            EditorBox,
+            EditorBox.GetPositionFromPoint(e.GetPosition(EditorBox), snapToText: true));
+
+    /// <summary>And which cell it ended in.</summary>
+    private void OnMouseUpForTables(object sender, MouseButtonEventArgs e) =>
+        TableCommands.EndDrag(
+            EditorBox,
+            EditorBox.GetPositionFromPoint(e.GetPosition(EditorBox), snapToText: true));
+
+    /// <summary>
+    /// The hand cursor over a link while Ctrl is held, so it is visible that
+    /// the click will do something.
+    /// </summary>
+    private void OnPreviewMouseMove(object sender, MouseEventArgs e)
+    {
+        if (Keyboard.Modifiers != ModifierKeys.Control)
+        {
+            if (EditorBox.Cursor == Cursors.Hand)
+            {
+                EditorBox.Cursor = null;
+            }
+
+            return;
+        }
+
+        var at = EditorBox.GetPositionFromPoint(e.GetPosition(EditorBox), snapToText: true);
+
+        EditorBox.Cursor = LinkSupport.Containing(at) is not null ? Cursors.Hand : null;
     }
 
     private void OnTextChanged(object sender, TextChangedEventArgs e)

@@ -76,6 +76,88 @@ You can edit the styles yourself: `data/styles.json` holds them in plain text.
 
 Pick from the list or type any size you like, half sizes included — `10.5` works.
 
+## Lists, tables, pictures and links
+
+### Lists
+
+The toolbar's two list buttons, **Format → Bulleted List** (Ctrl+Shift+8) and
+**Numbered List** (Ctrl+Shift+7), turn the paragraphs you have selected into a
+list, and turn a list back into ordinary text.
+
+Inside a list:
+
+- **Tab** makes the item one level deeper, **Shift+Tab** one level shallower.
+  Nine levels are available, which is as many as a saved file can describe.
+- **Enter** on an empty item ends the list. On an empty item inside a nested
+  list it steps out one level instead, so Enter walks back up a nested list
+  rather than jumping to the body text in one go.
+- Bullets change shape with depth — •, then ◦, then ▪ — and numbered levels go
+  1., then a., then i. A nested list is readable instead of being a wall of
+  identical dots.
+
+**Restart Numbering** and **Continue Numbering** are in the Format menu and in
+the right-click menu. Restarting makes the item you are on the first of a new
+list; continuing joins it back onto the list above.
+
+### Tables
+
+**Insert → Table...** asks for rows and columns and whether to draw borders.
+
+With the caret in a table, the **Table** menu and the right-click menu offer
+insert row above or below, insert column left or right, delete row, column or
+table, merge and split cells, cell shading and borders on or off. Outside a
+table every one of them is greyed out.
+
+- **Tab** moves to the next cell and selects what is in it. Tab in the last cell
+  adds a row, so a table can be filled in without reaching for the menu.
+  **Shift+Tab** goes back.
+- **Merging** needs more than one cell selected: drag across them, then
+  **Table → Merge Cells**. The text of every cell being merged is kept — a
+  merge never throws writing away, even when what it leaves is a cell with
+  several paragraphs in it.
+- **Splitting** undoes a merge: the cell shrinks back to one and empty cells
+  fill the space it gave up.
+- Deleting the last row, or the last column, deletes the table.
+
+### Pictures
+
+**Insert → Image...** takes PNG, JPEG, GIF, BMP, TIFF and WebP. A picture wider
+than the text column is scaled down to fit, keeping its shape.
+
+Click a picture and four handles appear at its corners. Drag one to resize it;
+the shape is kept unless you hold **Shift**. **Image Properties...** in the
+right-click menu sets the width, height and alt text exactly, and **Original
+Size** puts it back to the picture's own size.
+
+Two things worth knowing:
+
+- **A saved picture is the file you inserted, byte for byte.** Scratchpad Lite
+  keeps the original bytes rather than re-encoding on each save, so a photograph
+  saved ten times is not ten generations of JPEG.
+- **The same picture used twice is stored once.** A logo in forty places costs
+  one copy.
+
+WebP needs a Windows codec that is built into Windows 11 and recent Windows 10,
+but not every Windows 10 PC has it. If a `.webp` will not open, that is why, and
+the message says so.
+
+### Links
+
+**Ctrl+K** inserts a link, or edits the one at the caret. Type the address
+without `https://` if you like — a web address gets it added. Selected text
+becomes the link's text and keeps its own formatting, so linking a bold word
+leaves it bold.
+
+**Ctrl+click** opens a link. A plain click puts the caret in it, because the
+text of a link is text and has to be editable.
+
+Web and email addresses — `http`, `https` and `mailto` — open straight away.
+**Anything else shows you the full address and asks first**, because a link in a
+document can say one thing and point somewhere else entirely, and some addresses
+start other programs.
+
+**Remove Link** in the right-click menu takes the link off and keeps the text.
+
 ## Fonts
 
 The font picker shows every font Windows has, plus the bundled collection, plus
@@ -266,7 +348,10 @@ Windows, so there is nothing extra to install.
 | Align left / centre / right / justify | Ctrl+L / Ctrl+E / Ctrl+R / Ctrl+J |
 | Bulleted / Numbered list | Ctrl+Shift+8 / Ctrl+Shift+7 |
 | Clear formatting | Ctrl+Space |
-| Insert link | Ctrl+K |
+| Insert or edit a link | Ctrl+K |
+| Deeper / shallower list level | Tab / Shift+Tab |
+| Next / previous table cell | Tab / Shift+Tab |
+| Open the link at the caret | Ctrl+click |
 | Paste as plain text | Ctrl+Shift+V |
 | Find / Replace | Ctrl+F / Ctrl+H |
 | Find next / previous | F3 / Shift+F3 |
@@ -318,9 +403,14 @@ it took, and exits. It is there for the build script.
 9. **Markdown and plain text lose formatting.** The save warning says what.
 10. **RTF goes through WPF's own converter.** Paragraph style names are not kept
     and some features are best effort.
-11. **Not a page-layout program.** The editor shows one continuous page-width
+11. **A table selection is a stretch of the document, not a rectangle.** Drag
+    across cells and WPF widens the selection to whole rows. Scratchpad Lite
+    works out what you really swept from the cells the mouse went between, so
+    merging a column works — but selecting cells with the keyboard and merging
+    them merges the whole block between them.
+12. **Not a page-layout program.** The editor shows one continuous page-width
     column; pages are only split for printing and PDF. Headers, footers, columns
     and footnotes are out of scope for version 1.
-12. **Very large documents** — hundreds of pages — get slower, because WPF's rich
+13. **Very large documents** — hundreds of pages — get slower, because WPF's rich
     text control is not built for book-length files.
-13. **The `.exe` is not signed,** so SmartScreen warns on first run.
+14. **The `.exe` is not signed,** so SmartScreen warns on first run.
