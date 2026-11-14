@@ -100,6 +100,31 @@ Nothing in the test suites reads the blueprint - the tests that mention it
 encode its values in C# - so there was nothing to update there, and no test
 asserts anything about package licences. 456 + 531 still pass.
 
+What the first NuGet pull requests will carry, checked against nuget.org on the
+day this went in:
+
+    shipped     Markdig              0.42.0  -> 1.6.0    (0.x to 1.x)
+                System.IO.Packaging  10.0.14 -> 10.0.15
+                DocumentFormat.OpenXml        3.5.1      already current
+
+    test-only   xunit                2.9.2   -> 2.9.3
+                xunit.runner.visualstudio     2.8.2 -> 4.0.1
+                Microsoft.NET.Test.Sdk        17.12.0 -> 18.12.0
+                Xunit.StaFact        1.2.69  -> 4.0.24
+
+System.IO.Packaging has an 11.0.0 as well, and an ignore rule keeps it out: that
+line tracks the .NET major version, 11.x is for net11.0, and this project is
+net10.0. Major bumps of that one package are the wrong package rather than a
+new version of the right one. The 10.0.x line still comes through, which is
+what the pin is for - the version the Open XML SDK asks for transitively
+carries GHSA-f32c-w444-8ppv, and this project builds warnings as errors, so the
+restore refused it rather than letting it through quietly.
+
+The Markdig jump is the one to read properly when it arrives. It crosses 0.x,
+where a project is entitled to break anything, and this one is only used for
+reading Markdown - writing it is hand-written here - so the blast radius is
+MarkdownReader and the fidelity matrix's .md row.
+
 The NuGet entry names the four project folders one by one instead of pointing
 Dependabot at the solution. ScratchpadLite.slnx is the new XML solution format,
 and whether Dependabot can read it yet is not a question worth depending on.

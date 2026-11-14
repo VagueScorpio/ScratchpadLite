@@ -69,3 +69,13 @@ updates:
           - Microsoft.NET.Test.Sdk
 
     open-pull-requests-limit: 5
+
+    ignore:
+      # System.IO.Packaging tracks the .NET major version: the 11.x line is for
+      # net11.0 and this project is net10.0, so a major bump here is simply the
+      # wrong package. The 10.0.x line still comes through, which is the point
+      # of the pin - it is there because the version the Open XML SDK asks for
+      # transitively carries GHSA-f32c-w444-8ppv.
+      - dependency-name: System.IO.Packaging
+        update-types:
+          - version-update:semver-major
