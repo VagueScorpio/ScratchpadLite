@@ -8,7 +8,7 @@ underneath. Old entries are never removed.
 Contents
 --------
 
-  (none) 2026-11-14  Build: the workflow's actions moved to Node 24
+  (n/a) 2026-11-14  Build: the workflow's actions moved to Node 24
   v1.10 2026-11-13  Phase 10: fonts inside documents
   v1.9  2026-11-12  Phase 9: the release
   v1.8  2026-11-12  Phase 8: recovery, AutoSave, print, single instance
