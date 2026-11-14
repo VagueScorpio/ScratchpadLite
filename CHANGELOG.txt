@@ -8,6 +8,7 @@ underneath. Old entries are never removed.
 Contents
 --------
 
+  (n/a) 2026-11-14  A font bundle for the QA pass
   (n/a) 2026-11-14  RELEASE_ACCEPTANCE.md, and a checklist correction
   (n/a) 2026-11-14  The package licence check is gone; NuGet watched
   (n/a) 2026-11-14  Build: pinned actions, Dependabot, CLAUDE.md
@@ -23,6 +24,96 @@ Contents
   v1.2  2026-11-08  Phase 2: fonts
   v1.1  2026-11-08  Phase 1: editor core
   v1.0  2026-11-08  Phase 0: skeleton and pipeline
+--------------------------------------------------------------------------------
+unreleased  -  2026-11-14  -  A font bundle for the QA pass
+--------------------------------------------------------------------------------
+
+No version number: nothing here reaches the .exe, and nothing in this entry is
+committed except the document that describes it.
+
+What
+----
+
+fonts/ had never held a font, which left checks 3, 5, 7 and the authoring half
+of 23 impossible to do. It now holds five families, eight faces, 2.1 MB, all
+under the SIL Open Font Licence, each with the OFL.txt it shipped with beside
+it:
+
+    PressStart2P/        Regular                        pixel font
+    Lobster/             Regular                        heavy script
+    Bungee/              Regular                        wide display face
+    PTSerif/             Regular Bold Italic BoldItalic the only four-face one
+    Monoton-zipped.zip   Regular                        inside a .zip
+
+RELEASE_ACCEPTANCE.md is updated: prep step 2 describes the bundle instead of
+asking for one, step 10 says what the Font Report should show, and a new step
+5b covers writing an embedded document rather than only reading the prebuilt
+one.
+
+Why
+---
+
+Four of the five are deliberately hard to mistake for anything else. Check 23
+asks whether a font travelled inside a document, and the answer has to be
+readable at a glance on a PC that does not have the font: pixel letters or
+ordinary ones, with nothing in between. A tasteful text face would make that
+check a squint.
+
+PT Serif is there for the opposite reason. It is the only family here with four
+real faces, so it is the only one that exercises writing all four font parts in
+the sequence the schema demands - embedRegular, embedBold, embedItalic,
+embedBoldItalic - and grouping four files back into one family on the way in.
+
+Monoton is in a .zip rather than loose because ZipFontSource is a separate path
+through the scanner and nothing in fonts/ would otherwise take it.
+
+OFL matters beyond being free: it permits embedding outright, so these can be
+used to test the feature rather than to test the refusal. Windows' own fonts
+cannot, not for licence reasons but because this program refuses to embed a
+font that came with Windows - it is on the PC at the other end already.
+
+How
+---
+
+Embedding permission was verified twice rather than assumed from the licence
+name. Reading the OS/2 table out of the raw bytes gives fsType 0x0000 for all
+eight faces, which is Installable Embedding, the most permissive value defined;
+WPF's own EmbeddingRights agrees on every one. All eight load through
+GlyphTypeface from a file URI, which is how the app loads a font, and report
+the weight and style their filenames claim. None of the five is among the 439
+families installed on this PC, which is what makes them usable for a check
+about a PC that does not have the font.
+
+They came from github.com/google/fonts, downloaded into an empty folder of
+their own and checked there before anything was copied into fonts/. The
+blueprint's rule about that folder is that nothing in it may be deleted,
+renamed or overwritten, so the work was additive and README.txt was hashed
+before and after: 4d8430d5... both times, unchanged. Each family went into its
+own subfolder, which the scanner handles because it enumerates with
+RecurseSubdirectories, and which lets each family keep its own OFL.txt beside
+it rather than four licence files colliding in one flat folder.
+
+Two things worth knowing about what this does not do.
+
+The bundle is .ttf and .zip only. Check 5 asks for nine file types, and the
+other seven - .otf, .ttc, .woff, .woff2, .pfb+.pfm, .dfont, .eot - are covered
+by the suite against real files in tests/Fixtures/Fonts but are not in fonts/,
+so that check is not closed end to end in the program. Check 6 needs a Type 1
+font and there is none here.
+
+Eight faces is also not the "few hundred" the Phase 2 promise is about. The
+preparing pass finishes almost before the status bar can mention it, so check 3
+proves the mechanism and proves nothing about whether it scales. Both caveats
+are written into RELEASE_ACCEPTANCE.md rather than left for someone to notice.
+
+Nothing in fonts/ is committed - fonts/* is gitignored apart from README.txt,
+which is Section 5.1's decision about licences and size - so a clone still has
+an empty folder. FONT_LICENSES.txt in the repository still says no fonts are
+bundled, which is correct for the repository; build.ps1 regenerates it from
+whatever is actually in fonts/ at build time, so a release built here will ship
+an accurate one.
+
+
 
 --------------------------------------------------------------------------------
 unreleased  -  2026-11-14  -  RELEASE_ACCEPTANCE.md, and a claim the checklist got wrong

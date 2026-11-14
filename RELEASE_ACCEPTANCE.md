@@ -38,13 +38,41 @@ That makes check 23 answerable at a glance instead of by measurement:
 
 Copy both files to the stick.
 
-### 2. A font in `fonts/`, if you want the font checks
+### 2. The font bundle is in `fonts/` already
 
-`fonts/` holds only its README right now, and `FONT_LICENSES.txt` says as much.
-Checks 3, 5, 7 and the authoring half of 23 are about behaviour with real fonts
-in that folder, and none of them can be done until there are some. Drop in a
-few hundred if you have them, or a handful if you do not — a `.ttf`, an `.otf`,
-a `.woff2`, a `.pfb`+`.pfm` pair and a `.zip` of fonts covers check 5's list.
+Five families, eight faces, about 2.1 MB, all under the SIL Open Font Licence,
+each with the `OFL.txt` it came with sitting beside it so check 7 has something
+to read:
+
+| In `fonts/` | Faces | Why this one |
+| --- | --- | --- |
+| `PressStart2P/` | Regular | A pixel font. Substitution is unmissable. |
+| `Lobster/` | Regular | Heavy script. |
+| `Bungee/` | Regular | Display face, very wide. |
+| `PTSerif/` | Regular, **Bold**, *Italic*, ***Bold Italic*** | The only four-face family here, so it is the one that exercises embedding all four and grouping them as one family. |
+| `Monoton-zipped.zip` | Regular | A `.zip` rather than a loose file, which is a different code path (`ZipFontSource`). |
+
+Every one reports `fsType = 0x0000` — Installable Embedding, the most
+permissive value — confirmed twice, by reading the OS/2 table directly and by
+WPF's own `EmbeddingRights`. None of them is installed on the PC that built
+this, and none ships with Windows, so they travel into a document rather than
+being refused for being somebody else's.
+
+They came from `github.com/google/fonts` (`ofl/`), and they are **not in the
+repository** — `fonts/*` is gitignored on purpose, so a clone has only the
+README. Carry the folder on the stick with everything else.
+
+`FONT_LICENSES.txt` in the repo still says no fonts are bundled, and that is
+correct *for the repository*: the fonts are not committed. `build.ps1`
+regenerates that file from whatever is actually in `fonts/` at build time, so a
+release built on a machine that has this bundle will ship an accurate one.
+
+**What this bundle does not cover.** Check 5 asks for a `.ttf`, `.otf`, `.ttc`,
+`.woff`, `.woff2`, a `.pfb`+`.pfm` pair, a `.dfont`, an `.eot` and a `.zip`.
+This is `.ttf` and `.zip` only. The other types are exercised by the test suite
+against real files in `tests/Fixtures/Fonts`, so the decoders are covered — but
+if you want check 5 end to end in the program, add one of each yourself. Check
+6 needs a Type 1 font specifically, and there is none here.
 
 ### 3. Files for check 10
 
@@ -133,6 +161,26 @@ Open the same `.docx` in Scratchpad Lite on this PC.
   PC.
 - **Fail:** letters instead of symbols, or the name showing up in the picker.
 
+### Step 5b — Make one yourself · *closes 23's authoring half*
+
+Everything above tests *reading* a document that carries a font. This tests
+writing one, which is the half the prebuilt file cannot cover.
+
+Preferences → Saving → tick **Embed fonts from the font folder when saving**.
+Type a line, set it in **Press Start 2P**, save as `.docx`. Then put that file
+somewhere a PC without the bundle can reach it and open it there.
+
+- **Pass:** pixel letters.
+- **Fail:** ordinary letters, meaning the font did not travel.
+
+Worth doing with **PT Serif** too, in all four faces on one line — regular,
+bold, italic, bold italic. That is the only family here with four, and the four
+go into the document as four separate parts in a fixed order. If one of them
+comes back wrong, that ordering is where to look.
+
+Then try it with the switch **off**: the font should *not* travel, and the
+status bar should say which family was left behind and why.
+
 ### Step 6 — What the other programs wrote · *closes 10*
 
 Open your Word `.docx` and your LibreOffice `.odt` in Scratchpad Lite. Headings,
@@ -187,16 +235,20 @@ With a font in `fonts/` and the app open, delete that font from the folder.
   the original.
 - **Fail:** "the file is in use".
 
-### Step 10 — The Font Report · *closes 5, 7*
+### Step 10 — The Font Report · *closes 7, most of 5*
 
-Needs the bundle from prep step 2. Tools → Font Report after a reload.
+Tools → Font Report after a reload.
 
-- **5:** every type you dropped in appears under "Font folder", and the ones
-  that cannot work (`.fon`, `.vfb`) are listed **with a reason that makes
-  sense**.
-- **7:** `FONT_LICENSES.txt` lists every family, and the flags are right for
-  your fonts. This one is a judgement about your bundle; nobody else can make
-  it.
+- **5:** all five families appear under "Font folder" — Press Start 2P,
+  Lobster, Bungee, PT Serif and Monoton. PT Serif should be **one** family with
+  four faces, not four families. Monoton should be there despite living inside
+  the `.zip`. For the rest of check 5, drop a `.fon` and a `.vfb` in: they
+  cannot work, and the point is that each is listed **with a reason that makes
+  sense** rather than silently missing.
+- **7:** `FONT_LICENSES.txt` lists all five with their OFL text and copyright,
+  and flags nothing — none of them has missing licence information or
+  Restricted embedding. If something is flagged, that is the check failing and
+  worth reading closely.
 
 ### Step 11 — The stick · *closes 21*
 
@@ -209,7 +261,7 @@ Extract a **second** copy of the app onto the USB stick and run it from there.
 
 ### Step 12 — First launch with the bundle · *closes 3*
 
-Needs the bundle. Delete `data\font_cache` and launch.
+Delete `data\font_cache` and launch.
 
 - **Pass:** you can type **immediately**, while the status bar still says
   "Preparing fonts", and the bundled fonts appear in the picker as they become
@@ -218,6 +270,12 @@ Needs the bundle. Delete `data\font_cache` and launch.
 
 Then close and launch again. **Pass:** as fast as a launch with an empty
 `fonts/` folder — that is the Phase 2 promise, and the cache is what keeps it.
+
+One caveat on this one. Eight faces is a bundle, not a *load* — the Phase 2
+wording is "a few hundred". With eight the preparing pass is over almost before
+the status bar can say so, so this step proves the mechanism works and proves
+nothing about whether it scales. If you want the real answer, drop a few hundred
+fonts in first; that is the only version of this check that means anything.
 
 ---
 
