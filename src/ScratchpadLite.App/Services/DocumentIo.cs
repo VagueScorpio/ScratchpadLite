@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows.Documents;
 using ScratchpadLite.App.Bridge;
+using ScratchpadLite.Core.Fonts;
 using ScratchpadLite.Core.Formats;
 using ScratchpadLite.Core.Model;
 using ScratchpadLite.Core.Platform;
@@ -28,7 +29,11 @@ internal static class DocumentIo
     internal sealed record Opened(
         SpDocument Document,
         IReadOnlyList<string> Warnings,
-        FileOps.Stamp? Stamp);
+        FileOps.Stamp? Stamp)
+    {
+        /// <summary>The fonts the file carried with it (Section 7.4).</summary>
+        public IReadOnlyList<EmbeddedFont> EmbeddedFonts { get; init; } = [];
+    }
 
     /// <summary>Why a file could not be opened, in words meant for a person.</summary>
     internal sealed class OpenException(string message, Exception? inner = null)
@@ -87,7 +92,10 @@ internal static class DocumentIo
                         $"opened {Path.GetFileName(path)} ({handler.Name}, "
                         + $"{result.Document.Blocks.Count} blocks, {result.Warnings.Count} warnings)");
 
-                    return new Opened(result.Document, result.Warnings, stamp);
+                    return new Opened(result.Document, result.Warnings, stamp)
+                    {
+                        EmbeddedFonts = result.EmbeddedFonts,
+                    };
                 }
                 catch (OperationCanceledException)
                 {
@@ -111,6 +119,7 @@ internal static class DocumentIo
         string path,
         StyleSheet styles,
         bool keepBak,
+        WriteOptions? options,
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(document);
@@ -138,7 +147,7 @@ internal static class DocumentIo
                 // disk (Section 6.14).
                 FileOps.AtomicWrite(
                     path,
-                    stream => handler.Write(document, stream, path, ct),
+                    stream => handler.Write(document, stream, path, ct, options),
                     keepBak);
 
                 Log.Info($"saved {Path.GetFileName(path)} ({handler.Name})");
@@ -150,8 +159,9 @@ internal static class DocumentIo
     /// <summary>
     /// Builds a FlowDocument from IR. UI thread.
     /// </summary>
-    internal static FlowDocument ToFlowDocument(SpDocument document, StyleSheet styles) =>
-        FlowBuilder.Build(document, styles);
+    internal static FlowDocument ToFlowDocument(
+        SpDocument document, StyleSheet styles, Guid? documentId = null) =>
+        FlowBuilder.Build(document, styles, documentId);
 
     /// <summary>
     /// Walks a FlowDocument into IR, keeping what the file carried that the

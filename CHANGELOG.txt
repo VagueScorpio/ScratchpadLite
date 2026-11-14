@@ -8,6 +8,7 @@ underneath. Old entries are never removed.
 Contents
 --------
 
+  v1.10 2026-11-13  Phase 10: fonts inside documents
   v1.9  2026-11-12  Phase 9: the release
   v1.8  2026-11-12  Phase 8: recovery, AutoSave, print, single instance
   v1.7  2026-11-11  Phase 7: tabs, find and replace, spell check
@@ -19,6 +20,192 @@ Contents
   v1.1  2026-11-08  Phase 1: editor core
   v1.0  2026-11-08  Phase 0: skeleton and pipeline
 
+
+--------------------------------------------------------------------------------
+v1.10  -  2026-11-13  -  Phase 10: fonts inside documents
+--------------------------------------------------------------------------------
+
+What
+----
+
+Section 7.4, the optional last phase: a .docx or .odt can carry the fonts it
+uses, so a document written in a font from the fonts/ folder looks the same on
+a PC that has never seen it.
+
+  * The setting, in Preferences under Saving: "Embed fonts from the font
+    folder when saving". Off until it is turned on.
+  * DOCX. Each face goes in its own font part, obfuscated as ECMA-376 section
+    17.8.1 describes, referenced from a w:font entry by r:id and font key.
+    settings.xml says w:embedTrueTypeFonts, without which Word reads the
+    document, sees no instruction to embed and drops the fonts on its next
+    save.
+  * ODT. The font file goes in Fonts/ and is declared in
+    office:font-face-decls with svg:font-face-uri, in content.xml and
+    styles.xml both, and listed in the manifest. ODT does not obfuscate;
+    that is the format's decision.
+  * Reading both back. A document that arrives carrying fonts unpacks them to
+    data/font_cache/embedded/<document>/ and loads them for that tab alone:
+    they do not appear in the font picker, they cannot be applied to anything
+    else, and two documents carrying different fonts under one name do not
+    collide.
+  * A document that already carries fonts keeps them on save, whatever the
+    setting says. The setting decides something narrower: whether a font from
+    this PC is added to a document that did not have one.
+  * Three rules decide what may travel: only fonts from the fonts/ folder,
+    only where the font's own fsType allows it, and never a font converted
+    from Adobe Type 1. What is left behind is named in the status bar with the
+    reason.
+  * Recovery.Forget existed since Phase 8 and was never called, so a closed
+    tab's recovery file sat there until the next clean exit. Closing a tab now
+    forgets it, which is what the method was written for.
+  * 987 tests passing (456 in Core, 531 in App), up from 907.
+
+Measured on this PC, publishing the release build:
+
+    warm startup   683 ms and 759 ms, two publishes of the same code, with
+                   spreads of 622-694 and 676-931. Phase 9's nine-run median
+                   was 692 ms. Unchanged, in other words: nothing was added
+                   before the first frame, and nothing here runs at all
+                   unless a document carries fonts or the setting is on.
+    budget         1000 ms warm.
+    idle memory    158.9 MB working set, 86.9 MB private
+    .exe           170.2 MB, up 0.2 MB from v1.9
+    zip            68.3 MB
+    source zip     0.67 MB, 213 files
+
+The phase gate is "a .docx with a fonts/ font opens in Word on another PC and
+shows that font". Word turns out to be installed on this one, so most of that
+was answered here rather than left for a second machine.
+
+A real font - Wingdings, for outlines nothing could be mistaken for - was
+given a family name no PC has, put in a font folder, prepared by the real
+font pass, and embedded in a .docx through the real save path. Then Word was
+asked to open it:
+
+    opens with no repair prompt   yes
+    w:embedTrueTypeFonts read     yes
+    font on the text              "Scratchpad Embed Test"
+    line width as laid out        181.5 pt
+    the same text set in Arial    245.5 pt
+
+The last two lines are the ones that matter. Word is laying the line out with
+the embedded font's own advance widths, on a PC where that family is not among
+the 513 installed: had it failed to load the font and substituted, the two
+numbers would have agreed. What is left for a second PC is the look of it on
+the page, which is a question for eyes.
+
+Why
+---
+
+The setting is off by default for the same kind of reason AutoSave is. Turning
+it on copies somebody else's font file into a document that may be sent
+anywhere, which is a decision about a licence rather than about a file format,
+and not one to make on a user's behalf.
+
+The three rules are all somebody else's decision rather than this program's. A
+font that came with Windows is on the PC at the other end already, and copying
+Microsoft's fonts into a document would break their licence for nothing. The
+fsType flag is the foundry's statement about its own font, so Restricted is
+refused, and so is preview-and-print, which would make the document read-only
+in Word - a worse outcome than a substituted font. A converted Type 1 font is
+refused because what would travel is this program's conversion rather than the
+file anybody licensed, which is also why Section 6.6.4 stamps the conversion
+preview-and-print.
+
+Where a font contradicts itself - Restricted and Editable both set, which the
+specification says cannot happen and files do anyway - the stricter reading
+wins. Reading it the other way would be this program choosing the answer it
+preferred about somebody else's licence.
+
+A document that arrives carrying fonts keeps them. Stripping them out when the
+setting is off would be deciding on the user's behalf that their document
+should stop looking the way it looks everywhere else, and they would find out
+about it on somebody else's PC. Only families the document still uses travel,
+so a font kept for text that has since been deleted is dropped.
+
+The fonts a document brings are kept apart from the fonts/ folder's, per
+document, rather than merged into one list. Two documents can carry different
+fonts under the same family name, and whichever was opened second would
+otherwise take the name for both. It also keeps an embedded font out of the
+picker, which is right: it is not something the user installed.
+
+The faces are unpacked to files rather than loaded from memory because that is
+how WPF loads a font - from a URI. They are tidied at the next launch rather
+than when the tab closes, because WPF holds a font file open for as long as
+the family is registered and will not let go until the process ends; a folder
+left by a previous run belongs to nobody, so that is the moment it can go.
+
+Section 7.4 asks for the refused fonts to be listed "in a save warning". They
+go to the status bar instead, where the AutoSave skip reasons already go. The
+save warning is a modal dialog, and this is a condition that does not change
+between saves: a licence that forbids embedding will forbid it again in two
+minutes, and a dialog every time would train the user to click it away. It is
+said once per font per session, which is saying it.
+
+How
+---
+
+The obfuscation key was measured, not read. ECMA-376 says to "reverse the
+order of the bytes in the GUID (i.e. Big Endian ordering)", which can be read
+three ways, and the implementations published on the web split between two of
+them with each saying the other is wrong. Reading the sentence harder was not
+going to settle it, and neither would a round-trip test, which only proves
+this program agrees with itself.
+
+What settled it: XpsFont.ObfuscateFontData, Microsoft's own implementation of
+the same obfuscation for XPS, which ships in ReachFramework with the Windows
+Desktop runtime. Three candidate orderings were run against it and one matched
+- the GUID's big-endian bytes reversed, so AABBCCDD-EEFF-0011-2233-445566778899
+gives 99 88 77 66 55 44 33 22 11 00 FF EE DD CC BB AA - applied twice, to
+bytes 0 to 15 and again to 16 to 31. A test in the App suite holds the two
+implementations together, because a lucky agreement nobody checks is a
+coincidence waiting to break. Core cannot reference WPF, which is why that
+test cannot live beside the code it tests; Core's own suite asserts the key
+bytes that measurement produced.
+
+The two implementations part company in one place, and deliberately. Microsoft's
+walks off the end of a file shorter than the thirty-two bytes it scrambles: it
+is written for fonts, and a font is never that short. This one is also used on
+bytes that arrived inside somebody else's document, where "it cannot be that
+short" is not something that can be assumed, so it stops at the end of the
+array and lets the reader's own check refuse the file. There is a test for
+that difference.
+
+Everything on the reading side is treated as hostile (Section 7.5): the number
+of faces is capped at 64, each one is size-checked before it is read, an ODT
+href that climbs out of the package is refused, and a face that cannot be
+unscrambled is passed over with a warning rather than stopping the document
+opening. The check that it still looks like a font after the key is applied is
+worth more than it looks - it is the one thing that would catch the
+obfuscation being wrong, which otherwise shows up as a tab of unreadable text.
+
+Two things the tests settled that the documentation would not have:
+
+  * Windows' own core fonts are Editable rather than Restricted - arial,
+    segoeui, consola, times and wingdings all report fsType 0x0008. That does
+    not change what this program does with them, because they are refused for
+    being Windows fonts rather than for their rights, but it means the
+    end-to-end test of a real prepared font takes the embedding path rather
+    than the refusing one.
+  * The Open XML SDK's font parts are reached through FontPartType.FontOdttf,
+    which produces /word/fonts/font.odttf with the content type Word uses.
+    The SDK's FontPartType is a static class of PartTypeInfo values rather
+    than an enum, which is not what the shape of the name suggests.
+
+IFormatHandler.Write grew a WriteOptions parameter rather than the handlers
+growing a property. The handlers are shared - FormatRegistry makes one of each,
+lazily - and two tabs can be saving at the same moment, so per-save state on a
+shared instance is a race waiting to happen. A style sheet can live on the
+handler because it is the same for every document; the fonts to embed are this
+document's. ReadResult gained the fonts the same way, beside the document
+rather than inside it: the IR describes what a document says, and the IR is
+what the recovery copy is serialized from - font bytes in there would mean
+megabytes written every two minutes.
+
+That last point has a consequence worth stating plainly, and it is in the
+guide as limitation 8: a document restored after a crash has lost whatever
+fonts were embedded in it, because recovery keeps the text rather than the
+file. The original file on disk still has them.
 
 --------------------------------------------------------------------------------
 v1.9  -  2026-11-12  -  Phase 9: the release

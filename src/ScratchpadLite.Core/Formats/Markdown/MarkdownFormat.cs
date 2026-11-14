@@ -40,7 +40,12 @@ public sealed class MarkdownFormat : IFormatHandler
     public ReadResult Read(Stream input, string sourcePath, CancellationToken ct) =>
         MarkdownReader.Read(input, sourcePath, ct);
 
-    public void Write(SpDocument doc, Stream output, string targetPath, CancellationToken ct)
+    public void Write(
+        SpDocument doc,
+        Stream output,
+        string targetPath,
+        CancellationToken ct,
+        WriteOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(doc);
         ArgumentNullException.ThrowIfNull(output);

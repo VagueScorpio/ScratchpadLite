@@ -84,6 +84,13 @@ internal sealed class DocumentSession
     /// </remarks>
     internal bool BakWritten { get; set; }
 
+    /// <summary>
+    /// The fonts this document arrived carrying (Section 7.4). Kept so a
+    /// save puts them back: a document that travels with its fonts should
+    /// keep doing so, whatever this PC has in its own font folder.
+    /// </summary>
+    internal IReadOnlyList<ScratchpadLite.Core.Fonts.EmbeddedFont> EmbeddedFonts { get; set; } = [];
+
     /// <summary>When AutoSave last saved this document (Section 6.13.2).</summary>
     internal DateTime LastAutoSaveUtc { get; set; }
 

@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using System.Text;
 using System.Xml.Linq;
+using ScratchpadLite.Core.Fonts;
 using ScratchpadLite.Core.Model;
 using IrParagraph = ScratchpadLite.Core.Model.Paragraph;
 using IrTable = ScratchpadLite.Core.Model.Table;
@@ -32,7 +33,12 @@ namespace ScratchpadLite.Core.Formats.Odt;
 /// </remarks>
 internal static class OdtWriter
 {
-    internal static void Write(SpDocument doc, Stream output, StyleSheet styles, CancellationToken ct)
+    internal static void Write(
+        SpDocument doc,
+        Stream output,
+        StyleSheet styles,
+        CancellationToken ct,
+        WriteOptions options)
     {
         ArgumentNullException.ThrowIfNull(doc);
         ArgumentNullException.ThrowIfNull(output);
@@ -51,10 +57,14 @@ internal static class OdtWriter
             stream.Write(Encoding.ASCII.GetBytes(OdtXml.MimeType));
         }
 
-        WriteXml(zip, "META-INF/manifest.xml", BuildManifest(images.Select(i => i.Path)));
+        WriteXml(
+            zip,
+            "META-INF/manifest.xml",
+            BuildManifest(images.Select(i => i.Path), options.Fonts));
+
         WriteXml(zip, "meta.xml", BuildMeta(doc));
-        WriteXml(zip, "styles.xml", BuildStyles(styles, doc.Page));
-        WriteXml(zip, "content.xml", BuildContent(body, automatic));
+        WriteXml(zip, "styles.xml", BuildStyles(styles, doc.Page, options.Fonts));
+        WriteXml(zip, "content.xml", BuildContent(body, automatic, options.Fonts));
         WriteXml(zip, "settings.xml", BuildSettings());
 
         foreach (var (path, image) in images)
@@ -63,6 +73,18 @@ internal static class OdtWriter
             using var stream = entry.Open();
 
             stream.Write(image.Data);
+        }
+
+        // Section 7.4. The font goes in as itself: ODT has no obfuscation,
+        // which is the format's decision and the reason the rights check
+        // before embedding is the only thing protecting the foundry here.
+        foreach (var font in options.Fonts)
+        {
+            var entry = zip.CreateEntry(
+                OdtStyleMap.FontFolder + font.FileName, CompressionLevel.Optimal);
+
+            using var stream = entry.Open();
+            stream.Write(font.Bytes);
         }
     }
 
@@ -809,7 +831,8 @@ internal static class OdtWriter
         return element;
     }
 
-    private static XDocument BuildContent(XElement body, AutomaticStyles automatic)
+    private static XDocument BuildContent(
+        XElement body, AutomaticStyles automatic, IReadOnlyList<EmbeddedFont> fonts)
     {
         var automaticStyles = new XElement(OdtXml.Office + "automatic-styles");
 
@@ -822,17 +845,18 @@ internal static class OdtWriter
             OdtXml.Office + "document-content",
             OdtXml.Declarations(),
             new XAttribute(OdtXml.Office + "version", "1.3"),
-            OdtStyleMap.FontFaceDeclarations(),
+            OdtStyleMap.FontFaceDeclarations(fonts),
             automaticStyles,
             body));
     }
 
-    private static XDocument BuildStyles(StyleSheet styles, PageSetup page) =>
+    private static XDocument BuildStyles(
+        StyleSheet styles, PageSetup page, IReadOnlyList<EmbeddedFont> fonts) =>
         new(new XElement(
             OdtXml.Office + "document-styles",
             OdtXml.Declarations(),
             new XAttribute(OdtXml.Office + "version", "1.3"),
-            OdtStyleMap.FontFaceDeclarations(),
+            OdtStyleMap.FontFaceDeclarations(fonts),
             OdtStyleMap.NamedStyles(styles),
             OdtStyleMap.PageLayout(page)));
 
@@ -875,7 +899,8 @@ internal static class OdtWriter
             new XAttribute(OdtXml.Office + "version", "1.3"),
             new XElement(OdtXml.Office + "settings")));
 
-    private static XDocument BuildManifest(IEnumerable<string> images)
+    private static XDocument BuildManifest(
+        IEnumerable<string> images, IReadOnlyList<EmbeddedFont> fonts)
     {
         var manifest = new XElement(
             OdtXml.Manifest + "manifest",
@@ -890,6 +915,15 @@ internal static class OdtWriter
         foreach (var path in images)
         {
             manifest.Add(Entry(path, Markdown.MarkdownReader.MimeFor(path)));
+        }
+
+        foreach (var font in fonts)
+        {
+            // A file not listed here is not in the package as far as a reader
+            // is concerned, however plainly it is sitting in the zip.
+            manifest.Add(Entry(
+                OdtStyleMap.FontFolder + font.FileName,
+                OdtStyleMap.MediaTypeFor(font.Extension)));
         }
 
         return new XDocument(manifest);

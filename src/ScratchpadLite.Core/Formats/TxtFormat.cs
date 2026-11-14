@@ -112,7 +112,12 @@ public sealed class TxtFormat : IFormatHandler
             warnings);
     }
 
-    public void Write(SpDocument doc, Stream output, string targetPath, CancellationToken ct)
+    public void Write(
+        SpDocument doc,
+        Stream output,
+        string targetPath,
+        CancellationToken ct,
+        WriteOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(doc);
         ArgumentNullException.ThrowIfNull(output);

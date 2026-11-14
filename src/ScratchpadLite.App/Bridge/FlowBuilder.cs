@@ -56,7 +56,12 @@ internal static class FlowBuilder
     /// The style sheet, so a run's formatting can be compared with its
     /// paragraph style and only the differences written.
     /// </param>
-    internal static FlowDocument Build(SpDocument doc, StyleSheet styles)
+    /// <param name="documentId">
+    /// The document this is being built for, so its own embedded fonts win
+    /// over anything on the PC with the same name (Section 7.4). Null for a
+    /// document that brought none.
+    /// </param>
+    internal static FlowDocument Build(SpDocument doc, StyleSheet styles, Guid? documentId = null)
     {
         ArgumentNullException.ThrowIfNull(doc);
         ArgumentNullException.ThrowIfNull(styles);
@@ -66,7 +71,7 @@ internal static class FlowBuilder
             PagePadding = new Thickness(0),
         };
 
-        foreach (var block in BuildBlocks(doc.Blocks, styles))
+        foreach (var block in BuildBlocks(doc.Blocks, styles, documentId))
         {
             flow.Blocks.Add(block);
         }
@@ -84,7 +89,8 @@ internal static class FlowBuilder
     /// Turns IR blocks into WPF blocks, gathering runs of list paragraphs into
     /// List elements as it goes.
     /// </summary>
-    internal static IReadOnlyList<WpfBlock> BuildBlocks(IReadOnlyList<IrBlock> blocks, StyleSheet styles)
+    internal static IReadOnlyList<WpfBlock> BuildBlocks(
+        IReadOnlyList<IrBlock> blocks, StyleSheet styles, Guid? documentId = null)
     {
         var result = new List<WpfBlock>(blocks.Count);
         var at = 0;
@@ -106,14 +112,14 @@ internal static class FlowBuilder
                     at++;
                 }
 
-                result.AddRange(BuildLists(run, styles));
+                result.AddRange(BuildLists(run, styles, documentId));
                 continue;
             }
 
             result.Add(blocks[at] switch
             {
-                IrParagraph paragraph => BuildParagraph(paragraph, styles),
-                IrTable table => BuildTable(table, styles),
+                IrParagraph paragraph => BuildParagraph(paragraph, styles, documentId),
+                IrTable table => BuildTable(table, styles, documentId),
                 HorizontalRule => BuildRule(),
                 var other => throw new InvalidOperationException($"unknown block type {other.GetType().Name}"),
             });
@@ -124,7 +130,8 @@ internal static class FlowBuilder
         return result;
     }
 
-    private static WpfParagraph BuildParagraph(IrParagraph paragraph, StyleSheet styles)
+    private static WpfParagraph BuildParagraph(
+        IrParagraph paragraph, StyleSheet styles, Guid? documentId = null)
     {
         var style = styles[paragraph.StyleName];
         var wpf = new WpfParagraph();
@@ -160,7 +167,7 @@ internal static class FlowBuilder
             wpf.LineStackingStrategy = LineStackingStrategy.BlockLineHeight;
         }
 
-        foreach (var inline in BuildInlines(paragraph.Inlines, style, styles))
+        foreach (var inline in BuildInlines(paragraph.Inlines, style, styles, documentId))
         {
             wpf.Inlines.Add(inline);
         }
@@ -225,7 +232,8 @@ internal static class FlowBuilder
     /// the numbers into bullets - which is exactly what it did before this
     /// returned a collection.
     /// </remarks>
-    private static IReadOnlyList<List> BuildLists(IReadOnlyList<IrParagraph> paragraphs, StyleSheet styles)
+    private static IReadOnlyList<List> BuildLists(
+        IReadOnlyList<IrParagraph> paragraphs, StyleSheet styles, Guid? documentId = null)
     {
         var roots = new List<List>();
         var open = new List<(List List, ListInfo Info)>();
@@ -262,7 +270,7 @@ internal static class FlowBuilder
             }
 
             var item = new ListItem();
-            item.Blocks.Add(BuildParagraph(paragraph with { List = null }, styles));
+            item.Blocks.Add(BuildParagraph(paragraph with { List = null }, styles, documentId));
             open[level].List.ListItems.Add(item);
         }
 
@@ -338,7 +346,8 @@ internal static class FlowBuilder
         return list.ListItems.LastListItem!;
     }
 
-    private static WpfTable BuildTable(IrTable table, StyleSheet styles)
+    private static WpfTable BuildTable(
+        IrTable table, StyleSheet styles, Guid? documentId = null)
     {
         var wpf = new WpfTable
         {
@@ -388,7 +397,7 @@ internal static class FlowBuilder
                     wpfCell.Background = shading;
                 }
 
-                foreach (var block in BuildBlocks(cell.Blocks, styles))
+                foreach (var block in BuildBlocks(cell.Blocks, styles, documentId))
                 {
                     wpfCell.Blocks.Add(block);
                 }
@@ -426,7 +435,8 @@ internal static class FlowBuilder
     internal static IReadOnlyList<WpfInline> BuildInlines(
         IReadOnlyList<IrInline> inlines,
         ParagraphStyle style,
-        StyleSheet styles)
+        StyleSheet styles,
+        Guid? documentId = null)
     {
         var result = new List<WpfInline>(inlines.Count);
 
@@ -436,7 +446,7 @@ internal static class FlowBuilder
             {
                 case TextRun text:
                 {
-                    var run = BuildRun(text, style, styles);
+                    var run = BuildRun(text, style, styles, documentId);
 
                     result.Add(text.Style.Link is { } link
                         ? BuildHyperlink(run, link)
@@ -466,7 +476,8 @@ internal static class FlowBuilder
     /// One run. Only what differs from the paragraph style is set, which is
     /// what lets the walker tell direct formatting from inherited formatting.
     /// </summary>
-    private static Run BuildRun(TextRun text, ParagraphStyle style, StyleSheet styles)
+    private static Run BuildRun(
+        TextRun text, ParagraphStyle style, StyleSheet styles, Guid? documentId = null)
     {
         var run = new Run(text.Text);
         var character = text.Style;
@@ -474,7 +485,7 @@ internal static class FlowBuilder
 
         if (character.Family is { } family && !Same(family, styleFamily))
         {
-            run.FontFamily = FontRegistry.Resolve(family);
+            run.FontFamily = FontRegistry.Resolve(family, documentId);
 
             // What the file asked for, kept so a save writes the name back
             // even when a substitute is being shown (Section 6.6).

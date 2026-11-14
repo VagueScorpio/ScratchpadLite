@@ -48,6 +48,12 @@ public partial class MainWindow : Window
     /// </summary>
     private Dialogs.SpecialChars? _specialChars;
 
+    /// <summary>
+    /// Documents and font families already mentioned in a "not embedded"
+    /// message, so the same licence is not reported at every save.
+    /// </summary>
+    private readonly HashSet<string> _saidAboutFont = new(StringComparer.OrdinalIgnoreCase);
+
     public MainWindow(Settings settings, CommandLineOptions options)
     {
         _settings = settings;

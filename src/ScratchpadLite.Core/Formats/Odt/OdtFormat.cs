@@ -35,6 +35,11 @@ public sealed class OdtFormat : IFormatHandler
     public ReadResult Read(Stream input, string sourcePath, CancellationToken ct) =>
         OdtReader.Read(input, Styles, ct);
 
-    public void Write(SpDocument doc, Stream output, string targetPath, CancellationToken ct) =>
-        OdtWriter.Write(doc, output, Styles, ct);
+    public void Write(
+        SpDocument doc,
+        Stream output,
+        string targetPath,
+        CancellationToken ct,
+        WriteOptions? options = null) =>
+        OdtWriter.Write(doc, output, Styles, ct, options ?? WriteOptions.None);
 }

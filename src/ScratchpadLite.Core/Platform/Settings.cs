@@ -33,6 +33,20 @@ public sealed record Settings
     /// <summary>Draw each font name in its own font in the picker (Section 2.1).</summary>
     public bool PreviewFontNamesInOwnFont { get; init; } = true;
 
+    /// <summary>
+    /// Put the fonts a document uses inside it when saving as .docx or .odt
+    /// (Section 7.4).
+    /// </summary>
+    /// <remarks>
+    /// Off by default, like AutoSave and for the same kind of reason. Turning
+    /// it on copies somebody else's font file into a document that may then
+    /// be sent anywhere, which is a decision about a licence rather than
+    /// about a file format, and not one to make on the user's behalf. Only
+    /// fonts from the <c>fonts/</c> folder whose own fsType permits it are
+    /// ever embedded, and the ones left behind are named.
+    /// </remarks>
+    public bool EmbedFontsOnSave { get; init; }
+
     // Spell check
     public bool SpellCheckEnabled { get; init; } = true;
     public string SpellCheckLanguage { get; init; } = "en-US";

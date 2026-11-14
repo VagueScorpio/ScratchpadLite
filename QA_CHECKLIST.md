@@ -1,7 +1,7 @@
 # Scratchpad Lite — release QA checklist
 
 The twenty-two checks from Section 10.2 of the blueprint, run against the
-**v1.9** zip.
+**v1.10** zip, plus the one Phase 10 added.
 
 Each one says who checked it and how. Three answers are possible:
 
@@ -269,6 +269,27 @@ separate applications rather than one fighting over a mutex.
 
 **Run**: see *What was run here*.
 
+## 23. A document that carries its own font (v1.10)
+
+> A .docx with a `fonts/` font opens in Word on another PC and shows that font.
+
+**You**, and this one cannot be delegated to a test at all: it asks what Word
+does, on a PC that does not have the font. Put a font in `fonts/`, turn on
+Preferences → Saving → *Embed fonts from the font folder when saving*, write a
+line in that font, save as `.docx`, and open it on the other PC.
+
+**Test** for everything Word would reject the file over: `DocxEmbeddingTests`
+checks the obfuscation, the schema, the order of the four faces, the font key
+in the XML and the `w:embedTrueTypeFonts` flag — and the file passes
+`OpenXmlValidator` with the fonts in it. `FontObfuscationTests` holds the
+obfuscation against Microsoft's own implementation, which is the thing Word's
+reader agrees with. `OdtEmbeddingTests` does the same for `.odt`, where the
+equivalent question is whether LibreOffice shows the font.
+
+**Also worth your eyes:** the same document opened back in Scratchpad Lite on
+a PC without the font — it should look right, and the font should *not* appear
+in the font picker, because it belongs to that document rather than to the PC.
+
 ---
 
 ## What was run here
@@ -293,7 +314,7 @@ everything in it readable and runnable and stops anything new being made.
 
 ## What the suite covers
 
-`dotnet test ScratchpadLite.slnx` — **907 tests, 387 in Core and 520 in App**,
+`dotnet test ScratchpadLite.slnx` — **987 tests, 456 in Core and 531 in App**,
 all passing in Release for this build.
 
 The tests named in this document are the ones that bear on a checklist item.

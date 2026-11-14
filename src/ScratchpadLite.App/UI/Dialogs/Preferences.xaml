@@ -171,6 +171,14 @@
                         <CheckBox x:Name="KeepBakBox"
                                   Content="Keep the previous version as a .bak file"
                                   ToolTip="With AutoSave on, the .bak is the version from when you opened the file, written once per session."
+                                  Margin="0,0,0,16" />
+
+                        <TextBlock Text="Fonts inside documents" FontWeight="SemiBold" Margin="0,0,0,6" />
+                        <TextBlock TextWrapping="Wrap" Opacity="0.75" Margin="0,0,0,8"
+                                   Text="Puts the fonts from your fonts folder inside .docx and .odt files, so the document looks the same on a PC that does not have them. Only fonts whose own licence allows it, and never a font converted from Adobe Type 1. A document that already carries its fonts keeps them either way." />
+
+                        <CheckBox x:Name="EmbedFontsBox"
+                                  Content="Embed fonts from the font folder when saving"
                                   Margin="0,0,0,4" />
                     </StackPanel>
                 </ScrollViewer>

@@ -52,6 +52,20 @@ internal static class FontRegistry
     private static readonly Dictionary<string, FontFamily> FolderFamilies =
         new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Fonts that came inside a document, per document (Section 7.4). Guarded
+    /// by <see cref="Gate"/>.
+    /// </summary>
+    /// <remarks>
+    /// Kept apart from <see cref="FolderFamilies"/> rather than merged into
+    /// it, for two reasons. Two documents can embed different fonts under the
+    /// same family name, and whichever was opened second would otherwise take
+    /// the name for both. And an embedded font belongs to the document it
+    /// came in: it is not something the user installed, so it does not appear
+    /// in the font picker and cannot be applied to anything else.
+    /// </remarks>
+    private static readonly Dictionary<Guid, Dictionary<string, FontFamily>> EmbeddedFamilies = [];
+
     private static readonly List<string> RecentlyUsed = [];
 
     private static HashSet<string>? _windowsFamilies;
@@ -260,13 +274,114 @@ internal static class FontRegistry
     }
 
     /// <summary>
+    /// Makes a document's own embedded fonts resolvable while it is open
+    /// (Section 7.4), and says how many faces WPF accepted.
+    /// </summary>
+    /// <remarks>
+    /// The files have already been unpacked into the font cache by
+    /// <see cref="FontEmbedding.Unpack"/>. WPF loads a family from a folder
+    /// URI with the family name as the fragment, the same way the font folder
+    /// is loaded, and holds the file open for as long as the family lives -
+    /// which is why the unpacked folder is tidied at the next launch rather
+    /// than when the tab closes.
+    /// </remarks>
+    internal static int UseEmbedded(Guid documentId, IEnumerable<(EmbeddedFont Font, string Path)> unpacked)
+    {
+        ArgumentNullException.ThrowIfNull(unpacked);
+
+        var loaded = 0;
+
+        foreach (var (font, path) in unpacked)
+        {
+            try
+            {
+                var folder = Path.GetDirectoryName(path);
+
+                if (string.IsNullOrEmpty(folder))
+                {
+                    continue;
+                }
+
+                var family = new FontFamily(
+                    new Uri(folder + Path.DirectorySeparatorChar), $"./{Path.GetFileName(path)}#{font.Family}");
+
+                // Asking for the typefaces is what makes WPF open the file, so
+                // a font that cannot be loaded is found now rather than as
+                // blank text later.
+                if (family.GetTypefaces().Count == 0)
+                {
+                    Log.Warn($"the embedded font {font.Family} ({font.Face}) has no typefaces");
+
+                    continue;
+                }
+
+                lock (Gate)
+                {
+                    if (!EmbeddedFamilies.TryGetValue(documentId, out var families))
+                    {
+                        families = new Dictionary<string, FontFamily>(StringComparer.OrdinalIgnoreCase);
+                        EmbeddedFamilies[documentId] = families;
+                    }
+
+                    // The regular face names the family; the others are found
+                    // through it by weight and slant, as WPF does for any
+                    // family in a folder.
+                    families.TryAdd(font.Family, family);
+                }
+
+                loaded++;
+            }
+            catch (Exception ex) when (ex is IOException or UriFormatException
+                                          or ArgumentException or NotSupportedException)
+            {
+                Log.Warn($"the embedded font {font.Family} could not be registered: {ex.Message}");
+            }
+        }
+
+        return loaded;
+    }
+
+    /// <summary>Forgets a document's embedded fonts when its tab closes.</summary>
+    /// <remarks>
+    /// WPF will not release the files until the process ends, so this only
+    /// stops the names resolving; the folder goes at the next launch.
+    /// </remarks>
+    internal static void ForgetEmbedded(Guid documentId)
+    {
+        lock (Gate)
+        {
+            EmbeddedFamilies.Remove(documentId);
+        }
+    }
+
+    /// <summary>True when this document brought fonts of its own.</summary>
+    internal static bool HasEmbedded(Guid documentId)
+    {
+        lock (Gate)
+        {
+            return EmbeddedFamilies.ContainsKey(documentId);
+        }
+    }
+
+    /// <summary>
     /// A family name to a WPF family, falling back through Substitutions.
     /// </summary>
     /// <remarks>
-    /// A font-folder font wins over a Windows font of the same name
-    /// (Section 6.6.7), because the user put it there on purpose.
+    /// <para>A font-folder font wins over a Windows font of the same name
+    /// (Section 6.6.7), because the user put it there on purpose.</para>
+    ///
+    /// <para>A font the document brought with it wins over both, but only for
+    /// that document (Section 7.4). That is the order the user expects: a
+    /// document that carries its own font should look the same here as it did
+    /// where it was written, even on a PC that happens to have a different
+    /// font of the same name.</para>
     /// </remarks>
-    internal static FontFamily Resolve(string familyName)
+    /// <param name="documentId">
+    /// The document being built, if any, so its own embedded fonts are
+    /// considered. Null means a document with none, or a question being asked
+    /// outside any document.
+    /// </param>
+    internal static FontFamily Resolve(string familyName, Guid? documentId = null)
     {
         if (!string.IsNullOrWhiteSpace(familyName))
         {
@@ -274,6 +389,13 @@ internal static class FontRegistry
 
             lock (Gate)
             {
+                if (documentId is { } id
+                    && EmbeddedFamilies.TryGetValue(id, out var embedded)
+                    && embedded.TryGetValue(name, out var embeddedFont))
+                {
+                    return embeddedFont;
+                }
+
                 if (FolderFamilies.TryGetValue(name, out var folderFont))
                 {
                     return folderFont;

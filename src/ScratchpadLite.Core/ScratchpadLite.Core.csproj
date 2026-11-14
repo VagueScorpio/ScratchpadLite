@@ -24,6 +24,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The font obfuscation in Section 7.4 is internal to the DOCX handler,
+         and the tests for it need to see it: the whole point of those tests
+         is that this implementation agrees byte for byte with Microsoft's
+         own, which is not something the public API can be asked about. -->
+    <InternalsVisibleTo Include="ScratchpadLite.Core.Tests" />
+    <InternalsVisibleTo Include="ScratchpadLite.App.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- DOCX reading and writing (Section 7.2). Loaded lazily through
          FormatRegistry, so it costs nothing at startup.
 

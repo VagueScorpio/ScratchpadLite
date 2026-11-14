@@ -118,6 +118,7 @@ public partial class Preferences : Window
         AutoSaveIntervalBox.Text = settings.AutoSaveIntervalSeconds.ToString(CultureInfo.CurrentCulture);
         AutoSaveOnFocusLossBox.IsChecked = settings.AutoSaveOnFocusLoss;
         KeepBakBox.IsChecked = settings.KeepBakFile;
+        EmbedFontsBox.IsChecked = settings.EmbedFontsOnSave;
 
         RestoreSessionBox.IsChecked = settings.RestoreLastSession;
         RecentCountBox.Text = settings.RecentFilesCount.ToString(CultureInfo.CurrentCulture);
@@ -218,6 +219,7 @@ public partial class Preferences : Window
             AutoSaveIntervalSeconds = autoSave,
             AutoSaveOnFocusLoss = AutoSaveOnFocusLossBox.IsChecked == true,
             KeepBakFile = KeepBakBox.IsChecked == true,
+            EmbedFontsOnSave = EmbedFontsBox.IsChecked == true,
 
             RestoreLastSession = RestoreSessionBox.IsChecked == true,
             RecentFilesCount = recentCount,

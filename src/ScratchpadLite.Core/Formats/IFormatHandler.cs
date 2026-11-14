@@ -1,3 +1,4 @@
+using ScratchpadLite.Core.Fonts;
 using ScratchpadLite.Core.Model;
 
 namespace ScratchpadLite.Core.Formats;
@@ -27,7 +28,32 @@ public enum Capabilities
     Underline = 512,
 }
 
-public sealed record ReadResult(SpDocument Document, IReadOnlyList<string> Warnings);
+public sealed record ReadResult(SpDocument Document, IReadOnlyList<string> Warnings)
+{
+    /// <summary>
+    /// The fonts the file carried with it, already deobfuscated (Section
+    /// 7.4). Beside the document rather than inside it: the IR describes what
+    /// a document says, and these are what it brought along. They are also
+    /// too big to want in the recovery copy the IR is serialized into.
+    /// </summary>
+    public IReadOnlyList<EmbeddedFont> EmbeddedFonts { get; init; } = [];
+}
+
+/// <summary>
+/// What a save needs to know beyond the document itself (Section 7.4).
+/// </summary>
+/// <remarks>
+/// A parameter rather than a property on the handler, because the handlers
+/// are shared: <see cref="FormatRegistry"/> makes one of each, lazily, and
+/// two tabs can be saving at the same moment. A style sheet can live on the
+/// handler because it is the same for every document; the fonts to embed are
+/// this document's.
+/// </remarks>
+public sealed record WriteOptions(IReadOnlyList<EmbeddedFont> Fonts)
+{
+    /// <summary>Nothing to embed, which is what most saves want.</summary>
+    public static readonly WriteOptions None = new([]);
+}
 
 /// <summary>
 /// One loading dock (Section 4.1): it converts between its own file format and
@@ -49,5 +75,14 @@ public interface IFormatHandler
 
     ReadResult Read(Stream input, string sourcePath, CancellationToken ct);
 
-    void Write(SpDocument doc, Stream output, string targetPath, CancellationToken ct);
+    /// <param name="options">
+    /// Fonts to embed and anything else a save needs. Null means none, which
+    /// is what every format but DOCX and ODT does with it anyway.
+    /// </param>
+    void Write(
+        SpDocument doc,
+        Stream output,
+        string targetPath,
+        CancellationToken ct,
+        WriteOptions? options = null);
 }

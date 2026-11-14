@@ -39,6 +39,11 @@ public sealed class DocxFormat : IFormatHandler
     public ReadResult Read(Stream input, string sourcePath, CancellationToken ct) =>
         DocxReader.Read(input, Styles, ct);
 
-    public void Write(SpDocument doc, Stream output, string targetPath, CancellationToken ct) =>
-        DocxWriter.Write(doc, output, Styles, ct);
+    public void Write(
+        SpDocument doc,
+        Stream output,
+        string targetPath,
+        CancellationToken ct,
+        WriteOptions? options = null) =>
+        DocxWriter.Write(doc, output, Styles, ct, options ?? WriteOptions.None);
 }

@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using System.Xml;
 using System.Xml.Linq;
+using ScratchpadLite.Core.Fonts;
 using ScratchpadLite.Core.Model;
 using ScratchpadLite.Core.Platform;
 using IrBlock = ScratchpadLite.Core.Model.Block;
@@ -27,6 +28,9 @@ namespace ScratchpadLite.Core.Formats.Odt;
 /// </remarks>
 internal static class OdtReader
 {
+    /// <summary>How many embedded font faces one document may carry (Section 7.5).</summary>
+    private const int MaxEmbeddedFaces = 64;
+
     internal static ReadResult Read(Stream input, StyleSheet styles, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(input);
@@ -64,8 +68,146 @@ internal static class OdtReader
 
         return new ReadResult(
             new SpDocument(blocks, ReadMeta(zip), ReadPage(zip), fonts),
-            warnings);
+            warnings)
+        {
+            EmbeddedFonts = ReadEmbeddedFonts(zip, content, warnings),
+        };
     }
+
+    /// <summary>
+    /// The fonts the package carries (Section 7.4), declared in
+    /// <c>office:font-face-decls</c> and stored as files beside the content.
+    /// </summary>
+    /// <remarks>
+    /// Both content.xml and styles.xml may declare them, and a file written
+    /// by this program declares them in both, so what comes back is deduped
+    /// by the file each declaration points at. Everything here came out of
+    /// somebody else's zip, so the href is checked for the usual escapes
+    /// before anything is opened (Section 7.5).
+    /// </remarks>
+    private static IReadOnlyList<EmbeddedFont> ReadEmbeddedFonts(
+        ZipArchive zip, XDocument content, List<string> warnings)
+    {
+        var declarations = new List<XElement>();
+
+        foreach (var document in new[] { content, Load(zip, "styles.xml") })
+        {
+            if (document?.Root?.Element(OdtXml.Office + "font-face-decls") is { } decls)
+            {
+                declarations.AddRange(decls.Elements(OdtXml.Style + "font-face"));
+            }
+        }
+
+        var found = new List<EmbeddedFont>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var face in declarations)
+        {
+            if (found.Count >= MaxEmbeddedFaces)
+            {
+                warnings.Add(
+                    $"this document embeds more than {MaxEmbeddedFaces} font faces; "
+                    + "the rest were left out");
+
+                break;
+            }
+
+            var href = face
+                .Element(OdtXml.Svg + "font-face-src")?
+                .Element(OdtXml.Svg + "font-face-uri")?
+                .Attribute(OdtXml.Xlink + "href")?.Value;
+
+            if (string.IsNullOrWhiteSpace(href) || !seen.Add(href))
+            {
+                continue;
+            }
+
+            var family = face.Attribute(OdtXml.Svg + "font-family")?.Value
+                         ?? face.Attribute(OdtXml.Style + "name")?.Value;
+
+            if (string.IsNullOrWhiteSpace(family))
+            {
+                continue;
+            }
+
+            if (ReadFontFile(zip, href!, family!, FaceOf(face), warnings) is { } font)
+            {
+                found.Add(font);
+            }
+        }
+
+        return found;
+    }
+
+    private static FontFace FaceOf(XElement face)
+    {
+        var weight = face.Attribute(OdtXml.Svg + "font-weight")?.Value ?? "";
+        var slant = face.Attribute(OdtXml.Svg + "font-style")?.Value ?? "";
+
+        var bold = weight.Contains("bold", StringComparison.OrdinalIgnoreCase)
+                   || (int.TryParse(weight, out var numeric) && numeric >= 600);
+
+        var italic = slant.Contains("italic", StringComparison.OrdinalIgnoreCase)
+                     || slant.Contains("oblique", StringComparison.OrdinalIgnoreCase);
+
+        return (bold, italic) switch
+        {
+            (true, true) => FontFace.BoldItalic,
+            (true, false) => FontFace.Bold,
+            (false, true) => FontFace.Italic,
+            _ => FontFace.Regular,
+        };
+    }
+
+    private static EmbeddedFont? ReadFontFile(
+        ZipArchive zip, string href, string family, FontFace face, List<string> warnings)
+    {
+        try
+        {
+            var path = href.TrimStart('.', '/');
+
+            Limits.CheckEntryName(path);
+
+            if (zip.GetEntry(path) is not { } entry)
+            {
+                return null;
+            }
+
+            Limits.CheckDecodedFontSize(entry.Length);
+
+            using var stream = entry.Open();
+            using var buffer = new MemoryStream();
+            stream.CopyTo(buffer);
+
+            var bytes = buffer.ToArray();
+
+            if (!LooksLikeAFont(bytes))
+            {
+                warnings.Add($"the embedded font file for {family} is not a font and was left out");
+
+                return null;
+            }
+
+            return new EmbeddedFont(family, face, bytes)
+            {
+                Extension = FontEmbedding.ExtensionFor(bytes),
+            };
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException
+                                      or ArgumentException or FileTooLargeException)
+        {
+            warnings.Add($"an embedded font for {family} could not be read: {ex.Message}");
+
+            return null;
+        }
+    }
+
+    private static bool LooksLikeAFont(ReadOnlySpan<byte> bytes) =>
+        bytes.Length > 32
+        && (bytes.StartsWith("\0\u0001\0\0"u8)
+            || bytes.StartsWith("OTTO"u8)
+            || bytes.StartsWith("true"u8)
+            || bytes.StartsWith("ttcf"u8));
 
     private sealed record Context(
         ZipArchive Zip,

@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Threading;
 using ScratchpadLite.App.Editor;
 using ScratchpadLite.App.Services;
+using ScratchpadLite.Core.Fonts;
 using ScratchpadLite.Core.Model;
 using ScratchpadLite.Core.Platform;
 
@@ -197,6 +198,17 @@ public partial class MainWindow
         // A run that was killed having saved everything leaves a folder with
         // nothing in it, and nothing else would ever delete it.
         _recovery.TidyEmptyAbandonedFolders();
+
+        // Embedded fonts unpacked by a previous run (Section 7.4). WPF holds
+        // a font file open for the life of the process, so this is the only
+        // moment they can be removed: at launch, when every one of them
+        // belongs to a run that has ended.
+        var fonts = FontEmbedding.TidyUnpacked(_tabs.Tabs.Select(t => t.Id));
+
+        if (fonts > 0)
+        {
+            Log.Info($"tidied {fonts} unpacked embedded font folders from earlier runs");
+        }
 
         var leftovers = _recovery.FindLeftovers();
 

@@ -3,6 +3,9 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using ScratchpadLite.Core.Model;
 using ScratchpadLite.Core.Platform;
+using EmbeddedFont = ScratchpadLite.Core.Fonts.EmbeddedFont;
+using FontEmbedding = ScratchpadLite.Core.Fonts.FontEmbedding;
+using FontFace = ScratchpadLite.Core.Fonts.FontFace;
 using IrParagraph = ScratchpadLite.Core.Model.Paragraph;
 using IrTable = ScratchpadLite.Core.Model.Table;
 using WpParagraph = DocumentFormat.OpenXml.Wordprocessing.Paragraph;
@@ -28,6 +31,14 @@ namespace ScratchpadLite.Core.Formats.Docx;
 /// </remarks>
 internal static class DocxReader
 {
+    /// <summary>
+    /// How many embedded font faces one document may carry. A cap rather than
+    /// a limit anybody will meet: four faces times a few families is the real
+    /// case, and the number is here so a crafted file cannot ask for ten
+    /// thousand (Section 7.5).
+    /// </summary>
+    private const int MaxEmbeddedFaces = 64;
+
     internal static ReadResult Read(Stream input, StyleSheet styles, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(input);
@@ -62,8 +73,156 @@ internal static class DocxReader
 
         return new ReadResult(
             new SpDocument(blocks, ReadMeta(package), ReadPage(body), fonts),
-            warnings);
+            warnings)
+        {
+            EmbeddedFonts = ReadEmbeddedFonts(main, warnings),
+        };
     }
+
+    /// <summary>
+    /// The fonts the document brought with it (Section 7.4), unscrambled.
+    /// </summary>
+    /// <remarks>
+    /// <para>Everything here is treated as hostile, because an embedded font
+    /// is a block of bytes from a file somebody sent (Section 7.5): the
+    /// number of faces is capped, each one is size-checked before it is read,
+    /// and a face that is damaged or missing its key is passed over with a
+    /// warning rather than stopping the document opening. A document whose
+    /// fonts fail to load is still a document.</para>
+    ///
+    /// <para>A face is kept only if it looks like a font once the key has
+    /// been applied. That check is worth more than it looks: it is the one
+    /// thing that would catch the obfuscation being wrong, which is otherwise
+    /// a silent failure that produces a tab of unreadable text.</para>
+    /// </remarks>
+    private static IReadOnlyList<EmbeddedFont> ReadEmbeddedFonts(
+        MainDocumentPart main, List<string> warnings)
+    {
+        if (main.FontTablePart?.Fonts is not { } table)
+        {
+            return [];
+        }
+
+        var found = new List<EmbeddedFont>();
+
+        foreach (var font in table.Elements<Font>())
+        {
+            var family = font.Name?.Value;
+
+            if (string.IsNullOrWhiteSpace(family))
+            {
+                continue;
+            }
+
+            foreach (var (reference, face) in Faces(font))
+            {
+                if (found.Count >= MaxEmbeddedFaces)
+                {
+                    warnings.Add(
+                        $"this document embeds more than {MaxEmbeddedFaces} font faces; "
+                        + "the rest were left out");
+
+                    return found;
+                }
+
+                if (ReadFace(main, reference, family!, face, warnings) is { } embedded)
+                {
+                    found.Add(embedded);
+                }
+            }
+        }
+
+        return found;
+    }
+
+    private static IEnumerable<(FontRelationshipType Reference, FontFace Face)> Faces(Font font)
+    {
+        foreach (var child in font.ChildElements.OfType<FontRelationshipType>())
+        {
+            var face = child switch
+            {
+                EmbedBoldFont => FontFace.Bold,
+                EmbedItalicFont => FontFace.Italic,
+                EmbedBoldItalicFont => FontFace.BoldItalic,
+                EmbedRegularFont => FontFace.Regular,
+
+                // The same base type carries w:altName and the rest, which
+                // are not faces.
+                _ => (FontFace?)null,
+            };
+
+            if (face is { } which)
+            {
+                yield return (child, which);
+            }
+        }
+    }
+
+    private static EmbeddedFont? ReadFace(
+        MainDocumentPart main,
+        FontRelationshipType reference,
+        string family,
+        FontFace face,
+        List<string> warnings)
+    {
+        var id = reference.Id?.Value;
+        var rawKey = reference.FontKey?.Value;
+
+        if (string.IsNullOrEmpty(id) || !Guid.TryParse(rawKey, out var key))
+        {
+            warnings.Add($"an embedded face of {family} has no usable font key and was left out");
+
+            return null;
+        }
+
+        try
+        {
+            if (main.FontTablePart?.GetPartById(id) is not FontPart part)
+            {
+                return null;
+            }
+
+            using var stream = part.GetStream(FileMode.Open, FileAccess.Read);
+
+            if (stream.CanSeek)
+            {
+                Limits.CheckDecodedFontSize(stream.Length);
+            }
+
+            using var buffer = new MemoryStream();
+            stream.CopyTo(buffer);
+
+            var bytes = DocxFontEmbedder.Deobfuscate(buffer.ToArray(), key);
+
+            if (!LooksLikeAFont(bytes))
+            {
+                warnings.Add($"an embedded face of {family} could not be unscrambled and was left out");
+
+                return null;
+            }
+
+            return new EmbeddedFont(family, face, bytes)
+            {
+                Extension = FontEmbedding.ExtensionFor(bytes),
+            };
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException
+                                      or ArgumentException or KeyNotFoundException
+                                      or FileTooLargeException)
+        {
+            warnings.Add($"an embedded face of {family} could not be read: {ex.Message}");
+
+            return null;
+        }
+    }
+
+    /// <summary>The four sfnt signatures, which is what a deobfuscated face must start with.</summary>
+    private static bool LooksLikeAFont(ReadOnlySpan<byte> bytes) =>
+        bytes.Length > 32
+        && (bytes.StartsWith("\0\u0001\0\0"u8)
+            || bytes.StartsWith("OTTO"u8)
+            || bytes.StartsWith("true"u8)
+            || bytes.StartsWith("ttcf"u8));
 
     private sealed record Context(
         MainDocumentPart Main,

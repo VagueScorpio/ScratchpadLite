@@ -1,13 +1,18 @@
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
+
 using ScratchpadLite.Core.Model;
 using ScratchpadLite.Core.Platform;
 using Drawing = DocumentFormat.OpenXml.Drawing;
+using EmbeddedFont = ScratchpadLite.Core.Fonts.EmbeddedFont;
+using FontFace = ScratchpadLite.Core.Fonts.FontFace;
 using IrParagraph = ScratchpadLite.Core.Model.Paragraph;
 using IrTable = ScratchpadLite.Core.Model.Table;
 using Pictures = DocumentFormat.OpenXml.Drawing.Pictures;
 using WpParagraph = DocumentFormat.OpenXml.Wordprocessing.Paragraph;
+using WpFonts = DocumentFormat.OpenXml.Wordprocessing.Fonts;
+using WpSettings = DocumentFormat.OpenXml.Wordprocessing.Settings;
 using WpTable = DocumentFormat.OpenXml.Wordprocessing.Table;
 
 namespace ScratchpadLite.Core.Formats.Docx;
@@ -38,7 +43,12 @@ internal static class DocxWriter
     /// <summary>How many list levels Word defines, and so how many this writes.</summary>
     private const int ListLevels = 9;
 
-    internal static void Write(SpDocument doc, Stream output, StyleSheet styles, CancellationToken ct)
+    internal static void Write(
+        SpDocument doc,
+        Stream output,
+        StyleSheet styles,
+        CancellationToken ct,
+        WriteOptions options)
     {
         ArgumentNullException.ThrowIfNull(doc);
         ArgumentNullException.ThrowIfNull(output);
@@ -50,6 +60,7 @@ internal static class DocxWriter
         main.Document = new Document(new Body());
 
         WriteStyles(main, styles);
+        WriteEmbeddedFonts(main, options);
 
         var numbering = new NumberingState();
         var body = main.Document.Body!;
@@ -733,6 +744,89 @@ internal static class DocxWriter
     /// navigation pane entry, no table of contents, and no way for the reader
     /// to restyle it.
     /// </remarks>
+    /// <summary>
+    /// Writes the font table part and one obfuscated font part per face
+    /// (Section 7.4).
+    /// </summary>
+    /// <remarks>
+    /// <para>Two things Word insists on, neither of them obvious from the
+    /// schema. The faces of one family go in a fixed order inside
+    /// <c>w:font</c> - regular, bold, italic, bold italic - and a file that
+    /// lists them in any other order is invalid. And <c>settings.xml</c> has
+    /// to say <c>w:embedTrueTypeFonts</c>, or Word reads the document, sees
+    /// no instruction to embed, and drops every font part the next time it
+    /// saves.</para>
+    ///
+    /// <para>Each face gets its own font key rather than one key for the
+    /// document. That is what Word does, and it means a part lifted out of
+    /// the package is not unscrambled by a key found beside a different
+    /// one.</para>
+    /// </remarks>
+    private static void WriteEmbeddedFonts(MainDocumentPart main, WriteOptions options)
+    {
+        if (options.Fonts.Count == 0)
+        {
+            return;
+        }
+
+        var settings = main.AddNewPart<DocumentSettingsPart>();
+        settings.Settings = new WpSettings(new EmbedTrueTypeFonts { Val = OnOffValue.FromBoolean(true) });
+        settings.Settings.Save();
+
+        var table = main.AddNewPart<FontTablePart>();
+        var fonts = new WpFonts();
+
+        foreach (var family in options.Fonts
+                     .GroupBy(f => f.Family, StringComparer.OrdinalIgnoreCase))
+        {
+            var font = new Font { Name = family.Key };
+
+            // The schema's order, not the order they arrived in.
+            foreach (var face in family.OrderBy(f => (int)f.Face))
+            {
+                font.AppendChild(Embed(table, face));
+            }
+
+            fonts.AppendChild(font);
+        }
+
+        table.Fonts = fonts;
+        table.Fonts.Save();
+    }
+
+    /// <summary>
+    /// Writes one face into its own part and gives back the reference that
+    /// points at it.
+    /// </summary>
+    private static OpenXmlElement Embed(FontTablePart table, EmbeddedFont face)
+    {
+        var key = Guid.NewGuid();
+        var part = table.AddFontPart(FontPartType.FontOdttf);
+
+        using (var stream = part.GetStream(FileMode.Create, FileAccess.Write))
+        {
+            var scrambled = DocxFontEmbedder.Obfuscate(face.Bytes, key);
+            stream.Write(scrambled, 0, scrambled.Length);
+        }
+
+        var id = table.GetIdOfPart(part);
+
+        // Braces and upper case, which is the form Word writes and the form
+        // its own reader expects to parse.
+        var fontKey = key.ToString("B").ToUpperInvariant();
+
+        // Subsetted is false because the whole font goes in: this program has
+        // no subsetter, and saying otherwise would make Word trust a claim
+        // that is not true.
+        return face.Face switch
+        {
+            FontFace.Bold => new EmbedBoldFont { Id = id, FontKey = fontKey, Subsetted = false },
+            FontFace.Italic => new EmbedItalicFont { Id = id, FontKey = fontKey, Subsetted = false },
+            FontFace.BoldItalic => new EmbedBoldItalicFont { Id = id, FontKey = fontKey, Subsetted = false },
+            _ => new EmbedRegularFont { Id = id, FontKey = fontKey, Subsetted = false },
+        };
+    }
+
     private static void WriteStyles(MainDocumentPart main, StyleSheet styles)
     {
         var part = main.AddNewPart<StyleDefinitionsPart>();

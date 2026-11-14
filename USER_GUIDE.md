@@ -1,6 +1,6 @@
 # Scratchpad Lite — User Guide
 
-> **Version 1.9.** Everything in this guide is built and in the program. It was
+> **Version 1.10.** Everything in this guide is built and in the program. It was
 > written out in full at the start and filled in phase by phase, so nothing here
 > was invented at the end to match the code. Where something cannot be done, it
 > is in [Known limitations](#known-limitations) with the reason, and the
@@ -235,9 +235,44 @@ which fonts were substituted. The document keeps the original font name, so
 saving it does not lose what it asked for. Someone who opens the file on a PC
 that has that font sees it properly.
 
-Going the other way, a font from your `fonts/` folder does **not** travel with a
-document unless font embedding is on (Phase 10), so on another PC it falls back
-to something else.
+Going the other way, a font from your `fonts/` folder does not travel with a
+document unless you turn embedding on — see the next section.
+
+### Fonts inside documents
+
+**Preferences → Saving → Embed fonts from the font folder when saving** puts the
+fonts a document uses inside the file itself, so it looks the same on a PC that
+does not have them. It is off until you turn it on, and it applies to `.docx`
+and `.odt` only — those are the two formats with somewhere to put a font.
+
+Three rules decide what goes in, and none of them is this program's to bend.
+
+- **Only fonts from your `fonts/` folder.** A font that came with Windows is
+  already on the PC at the other end, and copying Microsoft's fonts into a
+  document would break their licence for no gain.
+- **Only if the font's own licence allows it.** Every font carries a flag
+  saying whether it may be embedded. Installable and Editable travel;
+  Restricted does not, and neither does preview-and-print, because a document
+  carrying one of those opens read-only in Word. Tools → Font Report shows the
+  flag for every font you have.
+- **Never a font converted from Adobe Type 1.** What would travel is this
+  program's conversion rather than the file the foundry made, which is not the
+  same thing and not covered by the same licence.
+
+Anything left behind is named in the status bar, once per font, with the
+reason — so a document that cannot carry its fonts says so here rather than
+looking wrong on somebody else's PC.
+
+**A document that already carries fonts keeps them**, whether the switch is on
+or off. Opening a `.docx` somebody sent you and saving it again does not strip
+the fonts out of it. What the switch controls is whether *your* fonts are added
+to a document that did not have them.
+
+A font inside a document is used for that document only. It does not appear in
+the font picker, it cannot be applied to anything else, and it is not installed
+on your PC. In a `.docx` the font is scrambled the way Word scrambles it, which
+is what a font licence usually asks for; `.odt` has no such mechanism and stores
+the file plainly, which is the format's decision rather than this program's.
 
 ## Files
 
@@ -271,6 +306,7 @@ instead. You can switch the warning off per format once you have seen it.
 | Images | yes | yes | re-encoded as PNG | sidecar folder | no |
 | Links | yes | yes | yes | yes | no |
 | Page setup | yes | yes | no | no | no |
+| Embedded fonts | yes | yes | no | no | no |
 
 Every row above was measured, not assumed. Three of them are worth a word:
 
@@ -504,7 +540,7 @@ single easiest thing to get wrong with the rich text control this is built on.
 | Appearance | theme, dark paper, page or full width, which bars to show |
 | Typing | the font, size and paragraph style new documents start with |
 | Spelling | spell check on or off, the language, and the long-document limit |
-| Saving | the recovery interval, AutoSave and its interval, Keep `.bak` |
+| Saving | the recovery interval, AutoSave and its interval, Keep `.bak`, embedding fonts |
 | Files | reopen last session, recent files, one window, `.txt` byte-order mark, the size above which a file is refused |
 
 Settings are written half a second after you change something, and again when
@@ -598,46 +634,55 @@ it took, and exits. It is there for the build script.
    a family of separate styles rather than a sliding scale.
 6. **A font removed from `fonts/` stays in the list until you restart.** Windows
    cannot unload a font that is in use.
-7. **Custom fonts travel only if embedded.** Without embedding (Phase 10), a
-   document using a `fonts/` font falls back to another font elsewhere.
-8. **Gaps in WPF's text engine:** no all-caps character format (use Change Case,
+7. **Custom fonts travel only if you embed them**, and only into `.docx` and
+   `.odt`. The switch is in Preferences → Saving, off until you turn it on. A
+   font whose own licence forbids embedding is never put in a file, and neither
+   is a font converted from Adobe Type 1; what was left behind is named in the
+   status bar. See [Fonts inside documents](#fonts-inside-documents).
+8. **A recovered document does not carry the fonts the file had.** Crash
+   recovery keeps your text, not the file it came from, so a document restored
+   after a crash has lost any fonts that were embedded in it. Save it with
+   embedding on and the ones in your `fonts/` folder go back in; a font that
+   only ever existed inside that document is gone, and the original file on
+   disk still has it.
+9. **Gaps in WPF's text engine:** no all-caps character format (use Change Case,
    which changes the letters), no letter spacing, small caps only on fonts that
    support it, and wavy underline is drawn approximately. A file that already
    uses all-caps or letter spacing keeps them when you save it back.
-9. **Markdown and plain text lose formatting.** The save warning says what.
-10. **RTF goes through WPF's own converter.** Paragraph style names are not kept
+10. **Markdown and plain text lose formatting.** The save warning says what.
+11. **RTF goes through WPF's own converter.** Paragraph style names are not kept
     and some features are best effort.
-11. **A table selection is a stretch of the document, not a rectangle.** Drag
+12. **A table selection is a stretch of the document, not a rectangle.** Drag
     across cells and WPF widens the selection to whole rows. Scratchpad Lite
     works out what you really swept from the cells the mouse went between, so
     merging a column works — but selecting cells with the keyboard and merging
     them merges the whole block between them.
-12. **Find and replace stops at a paragraph.** A match cannot span two
+13. **Find and replace stops at a paragraph.** A match cannot span two
     paragraphs, a line break, a table cell boundary or a picture, because a
     replacement across one of those would destroy the break it crossed.
-13. **Replacing the text of a link removes the link.** Replace All over a word
+14. **Replacing the text of a link removes the link.** Replace All over a word
     that happens to be inside a hyperlink leaves the new word as plain text.
     Use Ctrl+K to put the link back.
-14. **Not a page-layout program.** The editor shows one continuous page-width
+15. **Not a page-layout program.** The editor shows one continuous page-width
     column; pages are only split for printing and PDF. Headers, footers, columns
     and footnotes are out of scope for version 1.
-15. **Very large documents get slower,** because WPF's rich text control is not
+16. **Very large documents get slower,** because WPF's rich text control is not
     built for book-length files. Measured: a keystroke settles in about 3 ms at
     20 pages, 6 ms at 100, 19 ms at 300 and 90 ms at 600. Spell check is not
     the cause — the same numbers come out with it off.
-16. **PDF export cannot be given a file name.** It prints to Microsoft Print to
+17. **PDF export cannot be given a file name.** It prints to Microsoft Print to
     PDF, and that printer shows Windows' own Save As dialog — there is no way to
     pass a path through to it, so the app lets Windows ask rather than asking
     you twice.
-17. **AutoSave will not save a document you have never saved.** Save it once
+18. **AutoSave will not save a document you have never saved.** Save it once
     and AutoSave looks after it from then on. Crash recovery covers it in the
     meantime.
-18. **A recovered document is not your file.** Restoring from the Recover
+19. **A recovered document is not your file.** Restoring from the Recover
     Documents dialog opens the work as an unsaved tab; you decide whether it
     replaces what is on disk.
-19. **Formatting marks stop part way through a very long paragraph.** The dots
+20. **Formatting marks stop part way through a very long paragraph.** The dots
     and arrows are drawn for about twenty thousand characters of visible text;
     past that the paragraph marks carry on alone. Each dot costs a question to
     the layout engine about where that character landed, and a paragraph long
     enough to reach the limit is longer than a screenful anyway.
-20. **The `.exe` is not signed,** so SmartScreen warns on first run.
+21. **The `.exe` is not signed,** so SmartScreen warns on first run.

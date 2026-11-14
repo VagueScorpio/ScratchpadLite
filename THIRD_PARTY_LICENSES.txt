@@ -103,6 +103,18 @@ Deliberately not used
   free one that writes PDF directly would have added megabytes to the .exe to
   do what a printer Windows already has does for nothing.
 
+  Nothing was added in Phase 10 either. Font embedding is the Open XML SDK for
+  the DOCX side, which was already here, and hand-written XML for the ODT side,
+  which was already hand-written. The obfuscation ECMA-376 asks for is eight
+  lines of XOR.
+
+  Worth recording, though, because it decided a question no document could:
+  the key byte order was settled by measuring this project's implementation
+  against Microsoft's own, XpsFont.ObfuscateFontData, which is part of
+  ReachFramework in the Windows Desktop runtime. Nothing of Microsoft's is
+  copied or shipped - the method is called only from a test, as an oracle, and
+  the implementation in src/ScratchpadLite.Core is this project's own.
+
   Nothing was added in Phase 9, and nothing will be: this is the release. The
   three features it builds are WPF and nothing else. The Paragraph dialog sets
   properties the editor already had. The character grid asks each font for its

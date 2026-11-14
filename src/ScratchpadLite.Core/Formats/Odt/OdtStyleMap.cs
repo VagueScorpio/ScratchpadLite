@@ -1,4 +1,5 @@
 using System.Xml.Linq;
+using ScratchpadLite.Core.Fonts;
 using ScratchpadLite.Core.Model;
 
 namespace ScratchpadLite.Core.Formats.Odt;
@@ -142,18 +143,80 @@ internal static class OdtStyleMap
     };
 
     /// <summary>
-    /// The font faces the document refers to. ODT wants them declared.
+    /// The font faces the document refers to. ODT wants them declared, and an
+    /// embedded font is declared here too, pointing at the file inside the
+    /// package (Section 7.4).
     /// </summary>
-    internal static XElement FontFaceDeclarations() => new(
-        OdtXml.Office + "font-face-decls",
-        new XElement(
+    /// <remarks>
+    /// <para>The regular face of an embedded family is declared under the
+    /// family's own name, because that is the name every run in the document
+    /// already refers to through <c>style:font-name</c>. The other three get
+    /// names of their own - a declaration's name has to be unique - and are
+    /// tied back to the family by <c>svg:font-family</c> together with the
+    /// weight and the slant, which is how a reader picks the bold file for
+    /// bold text.</para>
+    ///
+    /// <para>Unlike DOCX, ODT does not obfuscate: the font goes into the
+    /// package as itself. That is the format's decision, not this program's,
+    /// and it is why the rights check before embedding matters just as
+    /// much.</para>
+    /// </remarks>
+    internal static XElement FontFaceDeclarations(IEnumerable<EmbeddedFont>? embedded = null)
+    {
+        var declarations = new XElement(
+            OdtXml.Office + "font-face-decls",
+            new XElement(
+                OdtXml.Style + "font-face",
+                new XAttribute(OdtXml.Style + "name", "Calibri"),
+                new XAttribute(OdtXml.Svg + "font-family", "Calibri")),
+            new XElement(
+                OdtXml.Style + "font-face",
+                new XAttribute(OdtXml.Style + "name", "Consolas"),
+                new XAttribute(OdtXml.Svg + "font-family", "Consolas")));
+
+        foreach (var font in embedded ?? [])
+        {
+            declarations.Add(EmbeddedFace(font));
+        }
+
+        return declarations;
+    }
+
+    /// <summary>The folder embedded fonts live in inside an .odt package.</summary>
+    internal const string FontFolder = "Fonts/";
+
+    private static XElement EmbeddedFace(EmbeddedFont font)
+    {
+        var bold = font.Face is FontFace.Bold or FontFace.BoldItalic;
+        var italic = font.Face is FontFace.Italic or FontFace.BoldItalic;
+
+        return new XElement(
             OdtXml.Style + "font-face",
-            new XAttribute(OdtXml.Style + "name", "Calibri"),
-            new XAttribute(OdtXml.Svg + "font-family", "Calibri")),
-        new XElement(
-            OdtXml.Style + "font-face",
-            new XAttribute(OdtXml.Style + "name", "Consolas"),
-            new XAttribute(OdtXml.Svg + "font-family", "Consolas")));
+            new XAttribute(
+                OdtXml.Style + "name",
+                font.Face == FontFace.Regular ? font.Family : $"{font.Family} {font.Face}"),
+            new XAttribute(OdtXml.Svg + "font-family", font.Family),
+            new XAttribute(OdtXml.Svg + "font-style", italic ? "italic" : "normal"),
+            new XAttribute(OdtXml.Svg + "font-weight", bold ? "bold" : "normal"),
+            new XElement(
+                OdtXml.Svg + "font-face-src",
+                new XElement(
+                    OdtXml.Svg + "font-face-uri",
+                    new XAttribute(OdtXml.Xlink + "href", FontFolder + font.FileName),
+                    new XAttribute(OdtXml.Xlink + "type", "simple"),
+                    new XAttribute(OdtXml.Xlink + "actuate", "onRequest"),
+                    new XElement(
+                        OdtXml.Svg + "font-face-format",
+                        new XAttribute(
+                            OdtXml.Svg + "string",
+                            font.Extension == ".otf" ? "opentype" : "truetype")))));
+    }
+
+    /// <summary>The media type for a font file inside the package.</summary>
+    internal static string MediaTypeFor(string extension) =>
+        extension.Equals(".otf", StringComparison.OrdinalIgnoreCase)
+            ? "application/x-font-otf"
+            : "application/x-font-ttf";
 
     /// <summary>The app's style sheet as ODT named styles.</summary>
     internal static XElement NamedStyles(StyleSheet styles)

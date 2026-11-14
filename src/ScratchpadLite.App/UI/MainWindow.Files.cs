@@ -207,12 +207,18 @@ public partial class MainWindow
             session.LastSavedIr = opened.Document;
             session.FormatName = FormatRegistry.InfoFor(Path.GetExtension(path))?.Name ?? "TXT";
 
+            // Before the document is built, so a run asking for a family the
+            // file brought with it resolves to that font rather than to
+            // whatever this PC has under the same name (Section 7.4).
+            LoadEmbeddedFonts(session, opened.EmbeddedFonts);
+
             // RTF has already put its own FlowDocument in the editor, and
             // rebuilding it from the walked IR would throw away whatever WPF's
             // converter kept that the IR has no room for.
             if (!IsRtf(path))
             {
-                view.Editor.Document = DocumentIo.ToFlowDocument(opened.Document, _styles);
+                view.Editor.Document =
+                    DocumentIo.ToFlowDocument(opened.Document, _styles, session.Id);
             }
 
             AfterDocumentChanged(session);
@@ -332,7 +338,13 @@ public partial class MainWindow
             else
             {
                 await DocumentIo
-                    .WriteAsync(document, path, _styles, keepBak, CancellationToken.None)
+                    .WriteAsync(
+                        document,
+                        path,
+                        _styles,
+                        keepBak,
+                        FontsToEmbed(session, document, path, fromAutoSave),
+                        CancellationToken.None)
                     .ConfigureAwait(true);
             }
 
@@ -604,6 +616,9 @@ public partial class MainWindow
             case MessageBoxResult.Yes when !await SaveAsync(session, saveAs: false).ConfigureAwait(true):
                 return;         // the save was cancelled, so the close is too
         }
+
+        ReleaseEmbeddedFonts(session);
+        _recovery.Forget(session);
 
         var remaining = _tabs.Remove(session);
 

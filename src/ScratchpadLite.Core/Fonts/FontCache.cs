@@ -26,6 +26,37 @@ public static class FontCache
     /// </summary>
     public const string EmbeddedFolderName = "embedded";
 
+    /// <summary>
+    /// Reads a prepared font by the file name the index holds, or null if it
+    /// is not there any more.
+    /// </summary>
+    /// <remarks>
+    /// Used by font embedding (Section 7.4), which needs the bytes rather
+    /// than the family WPF made from them - the file in the cache is the font
+    /// as it will travel, decoded and converted if it needed to be.
+    /// </remarks>
+    public static byte[]? TryRead(string cachedFileName)
+    {
+        if (string.IsNullOrWhiteSpace(cachedFileName))
+        {
+            return null;
+        }
+
+        try
+        {
+            var path = Path.Combine(AppPaths.FontCacheDir, cachedFileName);
+
+            return File.Exists(path) ? File.ReadAllBytes(path) : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+                                      or ArgumentException or NotSupportedException)
+        {
+            Log.Warn($"the cached font {cachedFileName} could not be read: {ex.Message}");
+
+            return null;
+        }
+    }
+
     public static string PathFor(string sha1, string extension)
     {
         ArgumentException.ThrowIfNullOrEmpty(sha1);

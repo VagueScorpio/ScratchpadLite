@@ -5,10 +5,12 @@ no .NET runtime, no Office, nothing else needed on the PC.
 
 Windows 10 (version 1809 or later) and Windows 11, x64.
 
-> **Status: v1.9, the release.** Every feature in the list below is built, and
-> every menu item in the program does something — the last three that were
-> still greyed out (Format → Paragraph, Insert → Special Character, View → Show
-> Formatting Marks) were built for this version. `.docx`, `.odt`, `.rtf`, `.md`
+> **Status: v1.10, the last phase.** Every feature in the list below is built,
+> and every menu item in the program does something. v1.10 adds the optional
+> last one: a `.docx` or `.odt` can now carry the fonts it uses inside it, so
+> a document written in a font from your `fonts/` folder looks the same on a
+> PC that has never seen that font — within what each font's own licence
+> allows. `.docx`, `.odt`, `.rtf`, `.md`
 > and `.txt` open and save, and the
 > [fidelity matrix](USER_GUIDE.md#what-survives-each-format) is measured rather
 > than promised. What cannot be done is written down in
@@ -34,6 +36,8 @@ Windows 10 (version 1809 or later) and Windows 11, x64.
 - **AutoSave to the real file** (a visible switch, off by default) and always-on
   crash recovery.
 - **Open and save** `.txt`, `.docx`, `.md`, `.rtf`, `.odt`.
+- **Fonts inside documents** — optionally put the fonts a `.docx` or `.odt`
+  uses inside the file, where the font's own licence allows it.
 - **Print and export to PDF.**
 - **Opens fast** — ready to type in about a second.
 
@@ -175,7 +179,7 @@ so compression buys nothing a user would notice and costs something they would.
 | 7 | v1.7 | Tabs, find and replace, spell check — **done** |
 | 8 | v1.8 | Recovery, AutoSave, themes, print, single instance, Preferences — **done** |
 | 9 | v1.9 | Release: clean-PC test, documents, full QA — **done** |
-| 10 | v1.10 | Optional: embed fonts in saved documents |
+| 10 | v1.10 | Optional: embed fonts in saved documents — **done** |
 
 Each phase ends with tests passing, a version bump in `Directory.Build.props`, a
 `CHANGELOG.txt` entry, and a measured startup time.
