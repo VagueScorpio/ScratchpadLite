@@ -256,9 +256,15 @@ $sourceFiles = Get-ChildItem $repo -Recurse -File -Force | Where-Object {
 
     $isFontBinary = $relative -like 'fonts\*' -and $_.Name -ne 'README.txt'
     $isFixture = $relative -like 'tests\Fixtures\*' -and $_.Name -ne 'README.txt'
+    # The blueprint is deliberately not published. .gitignore keeps it out of
+    # the public repository on the grounds that publishing the spec is the
+    # user's call; the source zip is attached to a public release, so leaving
+    # it in here would publish it anyway through the other door.
+    $isBlueprint = $relative -like 'docs\*Blueprint*.md'
+
     $isBundle = $_.Name -like 'ScratchpadLite-v*.zip'
 
-    -not ($inExcludedDir -or $isFontBinary -or $isFixture -or $isBundle)
+    -not ($inExcludedDir -or $isFontBinary -or $isFixture -or $isBundle -or $isBlueprint)
 }
 
 $listing = Join-Path $repo 'FILES.txt'

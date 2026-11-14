@@ -25,3 +25,8 @@ tests/Fixtures/Docs/*
 
 # Multicore JIT profile
 *.profile
+
+# The blueprint this project is built to. Kept here as the working copy so a
+# session finds it without being told, but NOT committed: the repo is public
+# and publishing the spec is the user's call, not a side effect of git add -A.
+docs/*Blueprint*.md

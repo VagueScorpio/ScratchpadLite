@@ -1,0 +1,36 @@
+# Who remembers to update the build workflow's actions.
+#
+# The actions in build.yml are pinned to commit SHAs rather than to floating
+# major tags (v7, v6), so nothing moves under us - and nothing moves on its own
+# either. A pinned SHA is frozen until somebody deliberately changes it, which
+# means the version that is safe today is the version with a known hole in it
+# in eighteen months. Floating tags heal themselves under neglect; pinned SHAs
+# rot under neglect.
+#
+# This file is the thing that remembers. It runs on GitHub's side, not on this
+# PC and not in any editor session, so it does not depend on anybody keeping a
+# runtime upgrade in their head. Dependabot understands SHA pins: it rewrites
+# both the SHA and the trailing "# v3.0.4" comment, so pinning costs nothing to
+# maintain once this file exists.
+#
+# It is configuration, not a program. Nothing is installed and nothing runs
+# here, so the "C# and PowerShell only" rule in Section 0 is untouched.
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+
+    # One pull request with all of them rather than one per action. The work in
+    # reviewing these is reading each release's notes to see whether a major
+    # bump changes behaviour, and that reads better as one diff than as four.
+    groups:
+      actions:
+        patterns:
+          - "*"
+
+    # A pull request, never a push. Every bump gets looked at before it can run
+    # with this repository's contents: write token.
+    open-pull-requests-limit: 5

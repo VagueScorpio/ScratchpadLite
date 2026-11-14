@@ -4,6 +4,18 @@ name: build
 # a manual run for checking a branch. Not a push-on-every-commit workflow -
 # build.ps1 publishes a self-contained .exe and runs five startup measurements,
 # which is not something to do on every push.
+#
+# The actions are pinned to commit SHAs, not to tags. "actions/checkout@v7" is
+# a pointer the action's owner moves as they release, so it runs whatever that
+# tag points to when the build starts, which is also what it would run if
+# somebody else got write access to that repository and moved it. A SHA is the
+# code's fingerprint and cannot be moved by anybody. The trailing comment is
+# the human-readable version, and .github/dependabot.yml is what moves them
+# forward - do not "tidy" these back into @v7.
+#
+# It matters here more than on most repositories: this job holds a token with
+# contents: write, and it builds an unsigned .exe that users download from the
+# releases page. There is no code signature for anybody to notice is wrong.
 on:
   push:
     tags:
@@ -18,10 +30,10 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up .NET 10
-        uses: actions/setup-dotnet@v6
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           dotnet-version: '10.0.x'
 
@@ -35,7 +47,7 @@ jobs:
       # Both zips: the portable build and the source bundle Section 0 asks for
       # at every gate. build.ps1 writes them side by side in dist\.
       - name: Upload the zips as a build artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ScratchpadLite-zips
           path: dist/*.zip
@@ -43,7 +55,7 @@ jobs:
 
       - name: Attach the zips to the release
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
           files: dist/*.zip
           fail_on_unmatched_files: true

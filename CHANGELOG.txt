@@ -8,6 +8,7 @@ underneath. Old entries are never removed.
 Contents
 --------
 
+  (n/a) 2026-11-14  Build: pinned actions, Dependabot, CLAUDE.md
   (n/a) 2026-11-14  Build: the workflow's actions moved to Node 24
   v1.10 2026-11-13  Phase 10: fonts inside documents
   v1.9  2026-11-12  Phase 9: the release
@@ -20,6 +21,96 @@ Contents
   v1.2  2026-11-08  Phase 2: fonts
   v1.1  2026-11-08  Phase 1: editor core
   v1.0  2026-11-08  Phase 0: skeleton and pipeline
+
+
+--------------------------------------------------------------------------------
+unreleased  -  2026-11-14  -  Build: pinned actions, Dependabot, CLAUDE.md
+--------------------------------------------------------------------------------
+
+No version number: nothing here reaches the .exe.
+
+What
+----
+
+  * .github/dependabot.yml, new. Monthly github-actions updates, all of them
+    grouped into one pull request, five open at most.
+  * The four actions in build.yml are pinned to commit SHAs instead of
+    floating major tags, each with its release in a trailing comment:
+
+        actions/checkout             3d3c42e5  # v7.0.1
+        actions/setup-dotnet         0f4a354d  # v6.1.0
+        actions/upload-artifact      cf430e03  # v7.0.2
+        softprops/action-gh-release  8a0cd651  # v3.0.4
+
+  * CLAUDE.md, new. The rules that are not a session's to relax, the two
+    exclusions that keep the blueprint unpublished, when to bump the version
+    and when not to, why the SHAs must not be "tidied" back into @v7, and the
+    test convention that a test never asserts anything about the machine it
+    runs on.
+  * build.ps1 no longer puts the blueprint in the source zip.
+
+Why
+---
+
+A tag is a pointer, not a version. "actions/checkout@v7" runs whatever the v7
+tag points at when the build starts, and whoever has write access to that
+repository decides what that is. In March 2025 somebody with write access to
+tj-actions/changed-files repointed every version tag at a commit that printed
+the runner's secrets into the build log, where they are public on a public
+repository. Around 23,000 repositories ran it. None of them had changed a line.
+
+That risk is worth more here than the floating tags were:
+
+  * this job holds a contents: write token, and
+  * it builds an unsigned .exe that users download from the releases page.
+
+With no code signature, a swapped zip has nothing to give it away. The SHA-256
+in the release notes is the check that would catch it, and it only works if the
+zip was built where the hash was computed.
+
+A SHA pin cuts the other way, though, and that is why dependabot.yml came
+first rather than as a footnote. A floating tag heals itself under neglect: the
+fixes arrive whether or not anybody is paying attention. A pinned SHA rots
+under neglect - it is frozen at a version that is safe today and will have a
+known hole in it eventually. Pinning without something that remembers trades a
+small exotic risk for a large certain one, which is a worse deal than not
+pinning at all. Dependabot runs on GitHub's side, so it does not depend on
+anybody holding a runtime deprecation in their head between one month and the
+next, and it understands SHA pins: it rewrites the hash and the trailing
+comment together.
+
+CLAUDE.md is the same problem one level up. An editor session starts with no
+memory of the last one, so a decision that lives only in a conversation is a
+decision that gets quietly undone - a future session sees four 40-character
+hashes, reads them as clutter, and floats them back to @v7 believing it is
+tidying up. The repository has to be the memory. The file is also where the
+things that have survived ten phases are written down plainly: the startup
+budget, the fonts folder, C# and PowerShell only, Core never referencing WPF.
+
+How
+---
+
+The SHAs were not taken on trust. For each action: the floating major tag and
+the latest release were both resolved to a commit, and the two agreed, so
+pinning freezes exactly the code that had just passed a green run rather than
+quietly moving to something else. Then each SHA was compared against its
+repository's default branch and came back "identical" or "behind" with
+ahead_by 0 - that is, an ancestor of the branch head rather than a commit
+sitting outside the history, which is what a repointed tag looks like.
+
+The blueprint exclusions were a leak found while writing CLAUDE.md, not a
+tidy-up, and both doors were open rather than one. The blueprint was copied
+into docs/ this morning; the .gitignore rule meant to keep it out of this
+public repository was written at the same time and never committed, so it
+existed only in this PC's working tree. And the source zip is built by walking
+the file system rather than by asking git, and is attached to a public release,
+so even a committed .gitignore would not have stopped it going out that way.
+
+Nothing was actually published. v1.10's source zip was built the evening
+before the blueprint arrived, and the last commit predates it too. That is
+timing rather than protection: the next commit or the next zip would have
+carried it. Both exclusions are committed now - the .gitignore rule and the
+build.ps1 one - and CLAUDE.md says not to remove either.
 
 
 --------------------------------------------------------------------------------
