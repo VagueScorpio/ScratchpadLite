@@ -2,8 +2,9 @@ Scratchpad Lite - Third-Party Licenses
 =====================================
 
 Every package in the shipped application is recorded here, with its license and
-why it is in the build. Allowed licenses are MIT, BSD, Apache 2.0, MS-PL and
-SIL OFL. No paid or license-key libraries, ever.
+why it is in the build - MIT and BSD both ask that their notice travel with the
+software, and this file is how that is done. No paid or license-key libraries,
+ever.
 
 A package is added only when what is built into .NET genuinely will not do, and
 the cost it adds to startup time and to the size of the .exe is measured and

@@ -74,6 +74,28 @@ runtime on its own. When a Dependabot PR appears, read the actual diff and each
 release's notes; do not trust the summary in the PR body, which is text written
 by a third party.
 
+## Adding a NuGet package
+
+Free, open-source packages are allowed. Check how recently the package was
+updated and ask before taking one with no release in two years. No paid or
+license-key libraries, ever (Aspose, Syncfusion, Telerik, DevExpress, Spire).
+Measure what it costs in startup time and `.exe` size and record that in
+`THIRD_PARTY_LICENSES.txt` beside why it is in the build.
+
+**There is no licence check any more.** The blueprint used to require checking
+a package's licence against an allowed list before adding it; the user removed
+that requirement on 2026-11-14 and the blueprint no longer contains it. Do not
+reinstate it from an older copy of the spec, and do not block on it.
+
+What did not change is the file itself. `THIRD_PARTY_LICENSES.txt` ships inside
+the zip, and MIT and BSD — which is everything here — ask that their notice
+travel with the software. That is an obligation of the packages, not a rule of
+this project's, so it survives the rule that was removed. Keep new packages
+listed there.
+
+Dependabot watches NuGet as well as the actions, monthly, with shipped and
+test-only packages grouped into separate pull requests.
+
 ## Building and testing
 
 ```powershell

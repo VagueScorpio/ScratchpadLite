@@ -8,6 +8,7 @@ underneath. Old entries are never removed.
 Contents
 --------
 
+  (n/a) 2026-11-14  The package licence check is gone; NuGet watched
   (n/a) 2026-11-14  Build: pinned actions, Dependabot, CLAUDE.md
   (n/a) 2026-11-14  Build: the workflow's actions moved to Node 24
   v1.10 2026-11-13  Phase 10: fonts inside documents
@@ -21,6 +22,94 @@ Contents
   v1.2  2026-11-08  Phase 2: fonts
   v1.1  2026-11-08  Phase 1: editor core
   v1.0  2026-11-08  Phase 0: skeleton and pipeline
+
+
+--------------------------------------------------------------------------------
+unreleased  -  2026-11-14  -  The package licence check is gone; Dependabot watches NuGet
+--------------------------------------------------------------------------------
+
+No version number: nothing here reaches the .exe.
+
+What
+----
+
+The licence check is removed from the project's rules, at the user's request.
+
+  * Section 0 of the blueprint used to read: "Before adding any package, check
+    its license and how recently it was updated, and record it in
+    THIRD_PARTY_LICENSES.txt. Allowed licenses: MIT, BSD, Apache 2.0, MS-PL,
+    SIL OFL. Anything else, or a package with no release in 2 years, ask me
+    first." It now reads: "Before adding any package, check how recently it was
+    updated; if it has had no release in 2 years, ask me first." The staleness
+    check and the ban on paid or licence-key libraries stay; the licence check,
+    the allowed list and the requirement to record a licence are gone.
+  * Both copies of the blueprint were edited - docs\ and the one in Downloads -
+    because they were identical and the Downloads copy is the one a later
+    session would copy from. They are still identical.
+  * The aside at Section 6.6.5 that said to record Google's woff2 licence now
+    just names the licence.
+  * THIRD_PARTY_LICENSES.txt no longer restates the allowed-licence policy in
+    its header.
+  * CLAUDE.md gained "Adding a NuGet package", which says plainly that there is
+    no licence check any more and not to reinstate it from an older copy of the
+    spec.
+  * .github/dependabot.yml now watches NuGet as well as the actions: monthly,
+    with the three shipped packages and the four test-only ones grouped into
+    separate pull requests.
+
+Why
+---
+
+The user's call, and the rule was theirs to drop: it was a process they had
+imposed on themselves, and this project does not take a package often enough
+for an allowed-list to be earning its keep. It was also the thing that made a
+Dependabot NuGet pull request expensive - a version bump would have arrived
+carrying a licence review that a version bump cannot actually change, since the
+licence of a package does not move when its version does.
+
+One thing does not go away with it, and the shipped file now says so instead of
+stating the policy. THIRD_PARTY_LICENSES.txt travels inside the zip, and every
+licence in this build - MIT for the Open XML SDK, System.IO.Packaging, the .NET
+runtime and WPF, BSD-2 for Markdig, BSD-3 for the Adobe Glyph List - asks that
+its notice travel with the software. That is an obligation of those packages
+rather than a rule of this project's, so removing the project's rule does not
+remove it. The file stays, and new packages still get listed in it. What is
+gone is the gate in front of adding one.
+
+The two groups on the NuGet side are not symmetry for its own sake. A bump to
+the Open XML SDK can change what a saved .docx contains, which is worth reading
+carefully against the fidelity matrix; a bump to the test runner is a different
+kind of risk, and the two do not read well in one diff.
+
+How
+---
+
+Scope was checked rather than assumed, because "licence" appears about thirty
+times in the blueprint and most of them are a feature rather than a rule. Three
+separate things share the word:
+
+  * the package licence check - a process rule, and the thing removed;
+  * font licensing - FONT_LICENSES.txt, its generator, the Font Report's
+    licence column, FontInspector reading licence strings and fsType out of raw
+    sfnt bytes, and the flags for "not for redistribution". That is shipped
+    behaviour with code, tests and a QA step behind it, so it is untouched;
+  * the shipped notice file existing and being copied into the zip, which
+    build.ps1 does and ReleaseAuditTests asserts. Untouched.
+
+Nothing in the test suites reads the blueprint - the tests that mention it
+encode its values in C# - so there was nothing to update there, and no test
+asserts anything about package licences. 456 + 531 still pass.
+
+The NuGet entry names the four project folders one by one instead of pointing
+Dependabot at the solution. ScratchpadLite.slnx is the new XML solution format,
+and whether Dependabot can read it yet is not a question worth depending on.
+
+One line was left deliberately, and is worth a second opinion: the last line of
+THIRD_PARTY_LICENSES.txt still asks that each test fixture font's source and
+licence be recorded in tests/Fixtures/Fonts/README.txt. It was left because it
+is about fonts rather than packages and about files that are never shipped, but
+it is a licence-recording requirement and it can go the same way if the user
+wants it to.
 
 
 --------------------------------------------------------------------------------

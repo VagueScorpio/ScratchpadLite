@@ -1,4 +1,5 @@
-# Who remembers to update the build workflow's actions.
+# Who remembers to update this project's dependencies: the build workflow's
+# actions, and the NuGet packages.
 #
 # The actions in build.yml are pinned to commit SHAs rather than to floating
 # major tags (v7, v6), so nothing moves under us - and nothing moves on its own
@@ -33,4 +34,38 @@ updates:
 
     # A pull request, never a push. Every bump gets looked at before it can run
     # with this repository's contents: write token.
+    open-pull-requests-limit: 5
+
+  # NuGet. The project rules no longer ask for a licence check before a package
+  # goes in, so a bump here is an ordinary change: read the release notes, run
+  # the tests, look at what it does to startup and to the size of the .exe.
+  #
+  # The project folders are named one by one rather than letting Dependabot
+  # find them from the solution: ScratchpadLite.slnx is the new XML solution
+  # format, and nothing here depends on whether Dependabot can read it yet.
+  - package-ecosystem: nuget
+    directories:
+      - /src/ScratchpadLite.Core
+      - /src/ScratchpadLite.App
+      - /tests/ScratchpadLite.Core.Tests
+      - /tests/ScratchpadLite.App.Tests
+    schedule:
+      interval: monthly
+
+    # Shipped packages and test-only packages in separate pull requests. A bump
+    # to the Open XML SDK can change what a saved .docx looks like and is worth
+    # reading carefully; a bump to the test runner is not the same kind of
+    # thing, and the two do not belong in one diff.
+    groups:
+      shipped:
+        patterns:
+          - DocumentFormat.OpenXml
+          - Markdig
+          - System.IO.Packaging
+      test-only:
+        patterns:
+          - "xunit*"
+          - "Xunit*"
+          - Microsoft.NET.Test.Sdk
+
     open-pull-requests-limit: 5
