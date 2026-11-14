@@ -8,6 +8,7 @@ underneath. Old entries are never removed.
 Contents
 --------
 
+  (n/a) 2026-11-14  RELEASE_ACCEPTANCE.md, and a checklist correction
   (n/a) 2026-11-14  The package licence check is gone; NuGet watched
   (n/a) 2026-11-14  Build: pinned actions, Dependabot, CLAUDE.md
   (n/a) 2026-11-14  Build: the workflow's actions moved to Node 24
@@ -22,6 +23,76 @@ Contents
   v1.2  2026-11-08  Phase 2: fonts
   v1.1  2026-11-08  Phase 1: editor core
   v1.0  2026-11-08  Phase 0: skeleton and pipeline
+
+--------------------------------------------------------------------------------
+unreleased  -  2026-11-14  -  RELEASE_ACCEPTANCE.md, and a claim the checklist got wrong
+--------------------------------------------------------------------------------
+
+No version number: nothing here reaches the .exe.
+
+What
+----
+
+  * RELEASE_ACCEPTANCE.md, new. The seventeen checks in QA_CHECKLIST.md that
+    have a "You" part, put in an order that closes eleven of them in one
+    sitting on one other PC, with what counts as a pass and what counts as a
+    fail for each, and a table to write the results into.
+  * QA_CHECKLIST.md check 10 is corrected. It claimed SampleFilesTests "opens
+    the fixtures from Word, WordPad and LibreOffice". It does not.
+  * CLAUDE.md now says the release is not QA-complete, so a later session does
+    not read 987 passing tests as the app having been verified.
+  * The Phase 10 gate documents were kept: tests/Fixtures/Docs/ now holds
+    embedded-font-test.docx and .odt, the files written through the real save
+    path when the obfuscation was checked against Word. Not committed - that
+    folder is gitignored - but they are out of the temporary folder they were
+    built in, which is cleared.
+
+Why
+---
+
+The question was whether the app is ready for release, and the answer turned
+out to need a document rather than a sentence. v1.10 is released and every
+blueprint feature is built, but seventeen of twenty-three checks have a part
+only a person can do and not one of them has been done. The gap is not spread
+evenly either: it sits on exactly the claims the README makes to a stranger -
+runs with no .NET, travels on a USB stick, prints - while the checks a test can
+reach are the ones that are closed.
+
+Two of those checks can be spent by accident, which is the main reason an order
+is worth writing down. SmartScreen only warns about a file that was downloaded,
+so copying the zip over on a stick spends it; and cold startup only means
+anything with an empty file cache, so any launch before the reboot spends that.
+Both need another PC or another reboot to retake.
+
+The checklist's own error is the part worth keeping in mind. It read as though
+check 10 had partial automated cover, and the sentence naming a test made it
+read stronger than the others. In fact nothing in either suite opens a file
+another program wrote: SampleFilesTests writes two files with the real writers
+and reads them back, and nothing reads tests/Fixtures/Docs/ at all - only the
+font fixtures are consumed, which is why that folder had never held more than
+its README. A round trip proves this program agrees with itself, which is the
+one thing it cannot establish here. So the reading side of DOCX, ODT and RTF
+has no automated cover at all, and the checklist now says so plainly.
+
+How
+---
+
+The embedded-font documents make check 23 answerable by eye rather than by
+measurement, which is why they were worth keeping. The font inside them is
+Wingdings redrawn under the name "Scratchpad Embed Test", which no PC has: open
+the .docx in Word on another PC and symbols mean the embedded font loaded,
+while ordinary letters mean Word substituted. At the phase gate the same
+question needed Word's own layout measurements - 181.5 pt against 245.5 pt for
+the same text in Arial - because the font was present on the PC doing the
+checking. On a PC that does not have it, looking is enough.
+
+RELEASE_ACCEPTANCE.md is not copied into the application zip. It is a working
+document for whoever is doing the pass, not something a user of the program
+needs, so build.ps1's document map is unchanged and so is the shipped-documents
+list in ReleaseAuditTests. It does travel in the source zip.
+
+456 + 531 tests still pass; nothing here touches code.
+
 
 
 --------------------------------------------------------------------------------

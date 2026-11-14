@@ -10,6 +10,12 @@ Each one says who checked it and how. Three answers are possible:
 - **You** — needs a person, a screen, or hardware this PC is not. These are the
   ones to do before you call the release done.
 
+Seventeen of the twenty-three have a **You** part. For doing them in one sitting
+on one other PC, in an order that spends the one-shot checks properly, see
+[RELEASE_ACCEPTANCE.md](RELEASE_ACCEPTANCE.md) — SmartScreen only fires on a
+file that was downloaded, and cold startup only means anything after a reboot,
+so both are easy to spend by accident.
+
 A check that needs a person is not a weaker check. It is the part a program
 cannot see: whether something *looks* right, whether a printed page came out of
 a real printer correctly, whether a PC that never had .NET on it runs the file.
@@ -143,10 +149,20 @@ guide's fidelity matrix is printed from.
 **Test** for the writing side: every `.docx` this app writes passes
 `OpenXmlValidator` with zero errors (`DocxTests`), and every `.odt` has its
 `mimetype` first and uncompressed with resolving style references (`OdtTests`).
-`SampleFilesTests` opens the fixtures from Word, WordPad and LibreOffice.
+`SampleFilesTests` writes an `.odt` and an `.md` with those same writers and
+reads them back, so the files handed over for the hand test are at least known
+to be self-consistent.
 
-**You** for the last mile: open a saved file in Word or LibreOffice and check it
-does not offer to repair it. A validator is not Word.
+**You** for all of the reading side, and this is a wider gap than the rest of
+this document: **nothing in either suite opens a file another program wrote.**
+`SampleFilesTests` writes rather than reads, and no test reads
+`tests/Fixtures/Docs/` at all — only the font fixtures are consumed, which is
+why that folder has never held more than its README. A round trip proves this
+app agrees with itself, which is the one thing it cannot tell you here.
+
+So: bring a real `.docx` from Word and a real `.odt` from LibreOffice, open
+both, then save them from here and open them back in those programs and check
+neither offers to repair the file. A validator is not Word.
 
 ## 11. A .doc file
 

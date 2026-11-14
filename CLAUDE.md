@@ -124,6 +124,13 @@ v1.10's assets were built locally and attached by hand, so their published
 SHA-256s match the documented build; its tag stays at the Phase 10 commit
 rather than being moved onto the later test fix.
 
+**The release is not QA-complete.** Seventeen of the twenty-three checks in
+`QA_CHECKLIST.md` have a part only a person can do, and none of them has been
+done — including check 1, a PC that never had .NET, which is the claim the whole
+product rests on. `RELEASE_ACCEPTANCE.md` is the ordered one-sitting pass for
+them. Do not describe the app as verified on the strength of the test suite:
+the suite covers what a test can reach, which is not the same thing.
+
 ## Working habits that fit this project
 
 - Commit and push after every working step. Commit messages explain **why**,
