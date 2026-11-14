@@ -8,6 +8,7 @@ underneath. Old entries are never removed.
 Contents
 --------
 
+  (none) 2026-11-14  Build: the workflow's actions moved to Node 24
   v1.10 2026-11-13  Phase 10: fonts inside documents
   v1.9  2026-11-12  Phase 9: the release
   v1.8  2026-11-12  Phase 8: recovery, AutoSave, print, single instance
@@ -19,6 +20,71 @@ Contents
   v1.2  2026-11-08  Phase 2: fonts
   v1.1  2026-11-08  Phase 1: editor core
   v1.0  2026-11-08  Phase 0: skeleton and pipeline
+
+
+--------------------------------------------------------------------------------
+unreleased  -  2026-11-14  -  Build: the workflow's actions moved to Node 24
+--------------------------------------------------------------------------------
+
+No version number, because nothing in the app changed. This section is here
+because every change gets written down, and the four lines it changed are in
+.github/workflows/build.yml only - not in anything that ends up in the .exe.
+
+What
+----
+
+The four actions the build workflow uses, moved to their current majors:
+
+    actions/checkout            v4 -> v7
+    actions/setup-dotnet        v4 -> v6
+    actions/upload-artifact     v4 -> v7
+    softprops/action-gh-release v2 -> v3
+
+Why
+---
+
+GitHub is retiring Node 20 from the Actions runners. The v1.10 tag build and
+the run on main both ended with:
+
+    Node.js 20 is deprecated. The following actions target Node.js 20 but are
+    being forced to run on Node.js 24: actions/checkout@v4,
+    actions/setup-dotnet@v4, actions/upload-artifact@v4
+
+"Forced to run" is the runner papering over it. When that shim goes, the
+workflow stops, and the way that failure would arrive is a tag build: push
+v1.11, get nothing built and nothing attached to the release. Fixing it while
+it is a warning is cheaper than fixing it while it is a tag that produced no
+zip.
+
+The fourth action is the reason this was worth doing carefully.
+softprops/action-gh-release@v2 is also Node 20, and it was NOT in that warning
+list - because the step that uses it is skipped on anything but a tag, so the
+run on main never loaded it. It is also the only action here that runs with
+contents: write, on the one build that publishes a release. It would have
+warned on the next tag and broken on the one after.
+
+How
+---
+
+The majors were read before they were taken, not assumed:
+
+  * checkout v5 is the Node 24 move, v6 writes credentials to a separate file,
+    v7 blocks checking out a fork's PR under pull_request_target and
+    workflow_run. This workflow has neither trigger, so v7 is a free upgrade.
+  * setup-dotnet v5 is the Node 24 move and drops the installers for older
+    .NET lines; v6 is an ESM port. 10.0.x is unaffected.
+  * upload-artifact needed v6, not v5: v5 "had preliminary support for Node 24,
+    however this action was by default still running on Node.js 20", so a bump
+    to v5 would have left the warning in place. v7 adds an archive parameter
+    that defaults to true, so the dist/*.zip glob behaves as before.
+  * action-gh-release v3 is a pure runtime move to Node 24. Its v2 line stays
+    pinned at 2.x for runners that need Node 20; this one does not.
+
+All four are floating major tags, which is what they were before. Pinning them
+to commit SHAs would be stronger - a floating tag can be moved under you, and
+one of these is a third-party action holding contents: write - but that is a
+separate decision about this repository's threat model rather than part of a
+deprecation fix.
 
 
 --------------------------------------------------------------------------------
