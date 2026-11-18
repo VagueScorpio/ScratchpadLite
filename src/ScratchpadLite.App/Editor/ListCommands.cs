@@ -67,10 +67,6 @@ internal static class ListCommands
         }
     }
 
-    /// <summary>Whether the caret or selection sits in a list.</summary>
-    internal static bool CaretIsInList(RichTextBox editor) =>
-        editor is not null && ListAt(editor.Selection.Start) is not null;
-
     /// <summary>Whether the caret sits in a numbered list.</summary>
     internal static bool CaretIsInNumberedList(RichTextBox editor) =>
         editor is not null
