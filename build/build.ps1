@@ -243,7 +243,7 @@ Compress-Archive -Path $distApp -DestinationPath $zip
 # binaries are left out; fonts\README.txt stays, because it ships.
 Step 'Source zip'
 
-$excludedDirs = @('bin', 'obj', 'dist', '.git', '.vs', 'node_modules')
+$excludedDirs = @('bin', 'obj', 'dist', '.git', '.vs', 'node_modules', '.optimization')
 
 $sourceFiles = Get-ChildItem $repo -Recurse -File -Force | Where-Object {
     $relative = $_.FullName.Substring($repo.Length + 1)
