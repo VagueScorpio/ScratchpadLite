@@ -660,10 +660,4 @@ internal static class ListCommands
             editor.EndChange();
         }
     }
-
-    /// <summary>
-    /// A fresh list item holding one empty paragraph, for the places that need
-    /// a list to have at least one.
-    /// </summary>
-    internal static ListItem EmptyItem() => new(new WpfParagraph());
 }
