@@ -134,7 +134,7 @@ internal static class OdtWriter
         {
             var properties = TextProperties(style);
 
-            if (properties.Attributes().Count() == 0)
+            if (!properties.Attributes().Any())
             {
                 return null;        // nothing to say, so no span is needed
             }
@@ -163,7 +163,7 @@ internal static class OdtWriter
         {
             var properties = ParagraphProperties(paragraph);
 
-            if (properties.Attributes().Count() == 0)
+            if (!properties.Attributes().Any())
             {
                 return null;
             }
