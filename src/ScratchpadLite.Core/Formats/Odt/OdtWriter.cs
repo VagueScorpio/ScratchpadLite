@@ -129,6 +129,33 @@ internal static class OdtWriter
 
         internal IReadOnlyList<XElement> Elements => _elements;
 
+        /// <summary>
+        /// The name already given to this key, or a fresh one with the element
+        /// <paramref name="build"/> makes for it declared.
+        /// </summary>
+        /// <remarks>
+        /// Each <c>ForX</c> below decides its own key, its own guard and its own
+        /// element shape; this is only the part they all shared — look up, name
+        /// as prefix plus a count, declare once, hand the name back.
+        /// </remarks>
+        private string Intern(
+            Dictionary<string, string> names,
+            string prefix,
+            string key,
+            Func<string, XElement> build)
+        {
+            if (names.TryGetValue(key, out var existing))
+            {
+                return existing;
+            }
+
+            var name = prefix + (names.Count + 1);
+            names[key] = name;
+            _elements.Add(build(name));
+
+            return name;
+        }
+
         /// <summary>The name of a text style for this character formatting.</summary>
         internal string? ForText(CharStyle style)
         {
@@ -139,23 +166,15 @@ internal static class OdtWriter
                 return null;        // nothing to say, so no span is needed
             }
 
-            var key = properties.ToString(SaveOptions.DisableFormatting);
-
-            if (_textNames.TryGetValue(key, out var existing))
-            {
-                return existing;
-            }
-
-            var name = "T" + (_textNames.Count + 1);
-            _textNames[key] = name;
-
-            _elements.Add(new XElement(
-                OdtXml.Style + "style",
-                new XAttribute(OdtXml.Style + "name", name),
-                new XAttribute(OdtXml.Style + "family", "text"),
-                properties));
-
-            return name;
+            return Intern(
+                _textNames,
+                "T",
+                properties.ToString(SaveOptions.DisableFormatting),
+                name => new XElement(
+                    OdtXml.Style + "style",
+                    new XAttribute(OdtXml.Style + "name", name),
+                    new XAttribute(OdtXml.Style + "family", "text"),
+                    properties));
         }
 
         /// <summary>The name of a paragraph style for this paragraph's own formatting.</summary>
@@ -168,24 +187,16 @@ internal static class OdtWriter
                 return null;
             }
 
-            var key = parent + "|" + properties.ToString(SaveOptions.DisableFormatting);
-
-            if (_paragraphNames.TryGetValue(key, out var existing))
-            {
-                return existing;
-            }
-
-            var name = "P" + (_paragraphNames.Count + 1);
-            _paragraphNames[key] = name;
-
-            _elements.Add(new XElement(
-                OdtXml.Style + "style",
-                new XAttribute(OdtXml.Style + "name", name),
-                new XAttribute(OdtXml.Style + "family", "paragraph"),
-                new XAttribute(OdtXml.Style + "parent-style-name", parent),
-                properties));
-
-            return name;
+            return Intern(
+                _paragraphNames,
+                "P",
+                parent + "|" + properties.ToString(SaveOptions.DisableFormatting),
+                name => new XElement(
+                    OdtXml.Style + "style",
+                    new XAttribute(OdtXml.Style + "name", name),
+                    new XAttribute(OdtXml.Style + "family", "paragraph"),
+                    new XAttribute(OdtXml.Style + "parent-style-name", parent),
+                    properties));
         }
 
         /// <summary>
@@ -201,35 +212,35 @@ internal static class OdtWriter
         internal string ForCell(string? shading, bool borders)
         {
             var color = OdtXml.Color(shading);
-            var key = (color ?? "none") + "|" + borders;
 
-            if (_cellNames.TryGetValue(key, out var existing))
-            {
-                return existing;
-            }
+            // The properties are built inside the lambda, not before the call:
+            // Intern only runs it on a miss, so a table of a hundred cells
+            // sharing one style builds one element rather than a hundred and
+            // throwing ninety-nine away.
+            return Intern(
+                _cellNames,
+                "TC",
+                (color ?? "none") + "|" + borders,
+                name =>
+                {
+                    var properties = new XElement(
+                        OdtXml.Style + "table-cell-properties",
+                        new XAttribute(OdtXml.Fo + "padding", "0.05in"),
+                        new XAttribute(
+                            OdtXml.Fo + "border",
+                            borders ? "0.5pt solid #808080" : "none"));
 
-            var name = "TC" + (_cellNames.Count + 1);
-            _cellNames[key] = name;
+                    if (color is not null)
+                    {
+                        properties.Add(new XAttribute(OdtXml.Fo + "background-color", color));
+                    }
 
-            var properties = new XElement(
-                OdtXml.Style + "table-cell-properties",
-                new XAttribute(OdtXml.Fo + "padding", "0.05in"),
-                new XAttribute(
-                    OdtXml.Fo + "border",
-                    borders ? "0.5pt solid #808080" : "none"));
-
-            if (color is not null)
-            {
-                properties.Add(new XAttribute(OdtXml.Fo + "background-color", color));
-            }
-
-            _elements.Add(new XElement(
-                OdtXml.Style + "style",
-                new XAttribute(OdtXml.Style + "name", name),
-                new XAttribute(OdtXml.Style + "family", "table-cell"),
-                properties));
-
-            return name;
+                    return new XElement(
+                        OdtXml.Style + "style",
+                        new XAttribute(OdtXml.Style + "name", name),
+                        new XAttribute(OdtXml.Style + "family", "table-cell"),
+                        properties);
+                });
         }
 
         /// <summary>
@@ -250,23 +261,17 @@ internal static class OdtWriter
 
             var key = OdtXml.Points(width);
 
-            if (_columnNames.TryGetValue(key, out var existing))
-            {
-                return existing;
-            }
-
-            var name = "TCol" + (_columnNames.Count + 1);
-            _columnNames[key] = name;
-
-            _elements.Add(new XElement(
-                OdtXml.Style + "style",
-                new XAttribute(OdtXml.Style + "name", name),
-                new XAttribute(OdtXml.Style + "family", "table-column"),
-                new XElement(
-                    OdtXml.Style + "table-column-properties",
-                    new XAttribute(OdtXml.Style + "column-width", key))));
-
-            return name;
+            return Intern(
+                _columnNames,
+                "TCol",
+                key,
+                name => new XElement(
+                    OdtXml.Style + "style",
+                    new XAttribute(OdtXml.Style + "name", name),
+                    new XAttribute(OdtXml.Style + "family", "table-column"),
+                    new XElement(
+                        OdtXml.Style + "table-column-properties",
+                        new XAttribute(OdtXml.Style + "column-width", key))));
         }
 
         /// <summary>
@@ -280,19 +285,11 @@ internal static class OdtWriter
         /// </remarks>
         internal string ForList(ListInfo info)
         {
-            var key = info.Kind == ListKind.Bullet ? "bullet" : "number:" + info.NumberFormat;
-
-            if (_listNames.TryGetValue(key, out var existing))
-            {
-                return existing;
-            }
-
-            var name = "L" + (_listNames.Count + 1);
-            _listNames[key] = name;
-
-            _elements.Add(OdtStyleMap.ListStyle(name, info.Kind, info.NumberFormat));
-
-            return name;
+            return Intern(
+                _listNames,
+                "L",
+                info.Kind == ListKind.Bullet ? "bullet" : "number:" + info.NumberFormat,
+                name => OdtStyleMap.ListStyle(name, info.Kind, info.NumberFormat));
         }
     }
 
