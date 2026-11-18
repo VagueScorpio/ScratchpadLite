@@ -303,9 +303,6 @@ internal static class ListCommands
     /// Ordered deepest-first so that indenting or outdenting several at once
     /// cannot move an item the loop has not reached yet.
     /// </remarks>
-    /// <summary>Exposed for the tests that check which items a key affects.</summary>
-    internal static List<ListItem> SelectedItemsForTests(RichTextBox editor) => SelectedItems(editor);
-
     private static List<ListItem> SelectedItems(RichTextBox editor)
     {
         var start = editor.Selection.Start;
