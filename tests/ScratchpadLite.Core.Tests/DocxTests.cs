@@ -1,6 +1,5 @@
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Validation;
-using ScratchpadLite.Core.Formats;
 using ScratchpadLite.Core.Formats.Docx;
 using ScratchpadLite.Core.Model;
 using Xunit;

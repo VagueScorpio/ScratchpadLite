@@ -1,7 +1,6 @@
 using System.IO.Compression;
 using System.Xml;
 using System.Xml.Linq;
-using ScratchpadLite.Core.Formats;
 using ScratchpadLite.Core.Formats.Odt;
 using ScratchpadLite.Core.Model;
 using Xunit;
