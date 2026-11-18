@@ -1,6 +1,5 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 using System.Windows.Documents;
 using ScratchpadLite.App.Editor;
 using ScratchpadLite.Core.Model;

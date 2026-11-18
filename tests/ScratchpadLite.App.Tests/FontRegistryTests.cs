@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.IO;
-using System.Windows.Media;
 using ScratchpadLite.App.Fonts;
 using ScratchpadLite.App.UI.Controls;
 using ScratchpadLite.Core.Fonts;

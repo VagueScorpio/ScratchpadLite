@@ -1,6 +1,5 @@
 using System.Buffers.Binary;
 using ScratchpadLite.Core.Fonts;
-using ScratchpadLite.Core.Formats;
 using Xunit;
 
 namespace ScratchpadLite.Core.Tests;

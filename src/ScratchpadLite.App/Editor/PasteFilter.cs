@@ -1,6 +1,5 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Documents;
 using ScratchpadLite.Core.Platform;
 
 namespace ScratchpadLite.App.Editor;

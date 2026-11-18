@@ -9,7 +9,6 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using ScratchpadLite.App.Bridge;
 using ScratchpadLite.Core.Model;
-using ScratchpadLite.Core.Platform;
 
 namespace ScratchpadLite.App.Editor;
 

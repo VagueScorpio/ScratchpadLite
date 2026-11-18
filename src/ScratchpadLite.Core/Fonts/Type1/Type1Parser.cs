@@ -1,7 +1,6 @@
 using System.Buffers.Binary;
 using System.Globalization;
 using System.Text;
-using ScratchpadLite.Core.Formats;
 
 namespace ScratchpadLite.Core.Fonts.Type1;
 

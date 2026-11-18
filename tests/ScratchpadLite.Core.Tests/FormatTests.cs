@@ -2,7 +2,6 @@ using System.Text;
 using ScratchpadLite.Core.Formats;
 using ScratchpadLite.Core.Model;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace ScratchpadLite.Core.Tests;
 

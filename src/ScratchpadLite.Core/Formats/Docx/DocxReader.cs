@@ -2,7 +2,6 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using ScratchpadLite.Core.Model;
-using ScratchpadLite.Core.Platform;
 using EmbeddedFont = ScratchpadLite.Core.Fonts.EmbeddedFont;
 using FontEmbedding = ScratchpadLite.Core.Fonts.FontEmbedding;
 using FontFace = ScratchpadLite.Core.Fonts.FontFace;

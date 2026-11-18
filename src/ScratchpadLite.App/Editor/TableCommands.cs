@@ -3,7 +3,6 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
 using ScratchpadLite.Core.Model;
-using ScratchpadLite.Core.Platform;
 using WpfParagraph = System.Windows.Documents.Paragraph;
 using WpfTable = System.Windows.Documents.Table;
 

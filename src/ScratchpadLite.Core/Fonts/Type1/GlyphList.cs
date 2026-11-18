@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Reflection;
 
 namespace ScratchpadLite.Core.Fonts.Type1;
 
