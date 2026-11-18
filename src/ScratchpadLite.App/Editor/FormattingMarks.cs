@@ -104,33 +104,18 @@ internal sealed class FormattingMarks : FrameworkElement
     }
 
     /// <summary>
-    /// The colour of the marks: the text's own colour at a third strength, so
-    /// they read as marks rather than as characters, in either theme and on
-    /// dark paper.
-    /// </summary>
-    /// <remarks>
-    /// Taken from the editor at paint time rather than pushed in when the
-    /// theme changes. The theme sets the editor's foreground through a
-    /// resource reference, which lands whenever WPF gets round to it, so
-    /// anything that read it on the way past would be a frame behind.
-    /// </remarks>
-    internal void UseInk(Brush foreground)
-    {
-        ArgumentNullException.ThrowIfNull(foreground);
-
-        if (!AdoptInk(foreground))
-        {
-            return;
-        }
-
-        Refresh();
-    }
-
-    /// <summary>
     /// Takes the ink from a foreground brush, and says whether anything
     /// changed. No repaint: this is called from the paint itself, where
     /// invalidating would start the paint again.
     /// </summary>
+    /// <remarks>
+    /// The ink is the text's own colour at a third strength, so the marks read
+    /// as marks rather than as characters, in either theme and on dark paper.
+    /// It is taken from the editor at paint time rather than pushed in when the
+    /// theme changes: the theme sets the editor's foreground through a resource
+    /// reference, which lands whenever WPF gets round to it, so anything that
+    /// read it on the way past would be a frame behind.
+    /// </remarks>
     private bool AdoptInk(Brush foreground)
     {
         if (ReferenceEquals(foreground, _inkSource))
