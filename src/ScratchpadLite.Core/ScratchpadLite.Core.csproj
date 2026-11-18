@@ -45,10 +45,18 @@
     <PackageReference Include="System.IO.Packaging" Version="10.0.14" />
   </ItemGroup>
 
-  <!-- Packages are added per phase, never up front (Section 2.1 "lean code rules"):
-         Phase 4: DocumentFormat.OpenXml (MIT)                  - DOCX
-         Phase 5: Markdig (BSD-2)                               - Markdown reading
-         Phase 7: System.Text.Encoding.CodePages (MIT)          - Windows-1252 TXT
-       Record each one in THIRD_PARTY_LICENSES.txt when it is added. -->
+  <!-- Packages are added per phase, never up front (Section 2.1 "lean code rules").
+       What actually shipped:
+         Phase 4: DocumentFormat.OpenXml   - DOCX
+         Phase 5: Markdig                  - Markdown reading
+         Phase 10: System.IO.Packaging     - pinned for the advisory noted above
+
+       The blueprint expected a Phase 7 package for Windows-1252 text files,
+       System.Text.Encoding.CodePages. It was never added: .NET 10 has it built
+       in and the reference was refused with NU1510. TxtFormat registers
+       CodePagesEncodingProvider on first use with no package at all.
+
+       Each package's cost in startup time and .exe size goes in
+       THIRD_PARTY_LICENSES.txt beside why it is in the build. -->
 
 </Project>

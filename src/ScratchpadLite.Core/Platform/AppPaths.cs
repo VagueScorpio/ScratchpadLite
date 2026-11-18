@@ -21,9 +21,16 @@ public static class AppPaths
     public static string ProgramDir { get; } = AppContext.BaseDirectory;
 
     /// <summary>
-    /// The font folder. Never deleted or overwritten; created with a README only
-    /// when missing. Overridable with <c>--fonts &lt;path&gt;</c>.
+    /// The font folder. Never deleted or overwritten; created empty when
+    /// missing. Overridable with <c>--fonts &lt;path&gt;</c>.
     /// </summary>
+    /// <remarks>
+    /// The README that explains the folder to the user is not written here:
+    /// <c>build.ps1</c> copies it into the zip at packaging time, so a user who
+    /// deletes it does not get it back. Nothing at runtime writes into this
+    /// folder at all, which is what keeps the Section 0 promise that the
+    /// user's fonts are only ever read.
+    /// </remarks>
     public static string FontDir
     {
         get => EnsureDir(_fontDirOverride ?? Path.Combine(ProgramDir, FontFolderName));
