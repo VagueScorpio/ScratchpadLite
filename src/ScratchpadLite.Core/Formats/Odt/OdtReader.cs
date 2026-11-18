@@ -64,7 +64,7 @@ internal static class OdtReader
         }
 
         var fonts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        CollectFonts(blocks, fonts);
+        PageFacts.CollectFonts(blocks, fonts);
 
         return new ReadResult(
             new SpDocument(blocks, ReadMeta(zip), ReadPage(zip), fonts),
@@ -658,65 +658,12 @@ internal static class OdtReader
             is { } orientation && orientation.Equals("landscape", StringComparison.OrdinalIgnoreCase);
 
         return new PageSetup(
-            PaperFor(Math.Min(width, height), Math.Max(width, height)),
+            PageFacts.PaperFor(Math.Min(width, height), Math.Max(width, height)),
             landscape,
             OdtXml.ToPoints(layout.Attribute(OdtXml.Fo + "margin-top")?.Value) ?? 72,
             OdtXml.ToPoints(layout.Attribute(OdtXml.Fo + "margin-bottom")?.Value) ?? 72,
             OdtXml.ToPoints(layout.Attribute(OdtXml.Fo + "margin-left")?.Value) ?? 72,
             OdtXml.ToPoints(layout.Attribute(OdtXml.Fo + "margin-right")?.Value) ?? 72);
-    }
-
-    private static string PaperFor(double shortSide, double longSide)
-    {
-        (string Name, double Short, double Long)[] papers =
-        [
-            ("Letter", 612, 792),
-            ("A4", 595.3, 841.9),
-            ("A5", 419.5, 595.3),
-            ("Legal", 612, 1008),
-            ("Tabloid", 792, 1224),
-        ];
-
-        foreach (var (name, expectedShort, expectedLong) in papers)
-        {
-            if (Math.Abs(shortSide - expectedShort) < 3 && Math.Abs(longSide - expectedLong) < 3)
-            {
-                return name;
-            }
-        }
-
-        return "Letter";
-    }
-
-    private static void CollectFonts(IReadOnlyList<IrBlock> blocks, HashSet<string> fonts)
-    {
-        foreach (var block in blocks)
-        {
-            switch (block)
-            {
-                case IrParagraph paragraph:
-                    foreach (var inline in paragraph.Inlines)
-                    {
-                        if (inline is TextRun { Style.Family: { } family })
-                        {
-                            fonts.Add(family);
-                        }
-                    }
-
-                    break;
-
-                case IrTable table:
-                    foreach (var row in table.Rows)
-                    {
-                        foreach (var cell in row)
-                        {
-                            CollectFonts(cell.Blocks, fonts);
-                        }
-                    }
-
-                    break;
-            }
-        }
     }
 
     private static void Warn(Context context, string message)

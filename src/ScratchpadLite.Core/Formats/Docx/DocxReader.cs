@@ -69,7 +69,7 @@ internal static class DocxReader
         }
 
         var fonts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        CollectFonts(blocks, fonts);
+        PageFacts.CollectFonts(blocks, fonts);
 
         return new ReadResult(
             new SpDocument(blocks, ReadMeta(package), ReadPage(body), fonts),
@@ -645,65 +645,12 @@ internal static class DocxReader
         var longSide = Math.Max(widthPt, heightPt);
 
         return new PageSetup(
-            PaperFor(shortSide, longSide),
+            PageFacts.PaperFor(shortSide, longSide),
             landscape,
             margin?.Top is { } top ? Units.TwipsToPoints(top.Value) : 72,
             margin?.Bottom is { } bottom ? Units.TwipsToPoints(bottom.Value) : 72,
             margin?.Left is { } left ? Units.TwipsToPoints(left.Value) : 72,
             margin?.Right is { } right ? Units.TwipsToPoints(right.Value) : 72);
-    }
-
-    private static string PaperFor(double shortSide, double longSide)
-    {
-        (string Name, double Short, double Long)[] papers =
-        [
-            ("Letter", 612, 792),
-            ("A4", 595.3, 841.9),
-            ("A5", 419.5, 595.3),
-            ("Legal", 612, 1008),
-            ("Tabloid", 792, 1224),
-        ];
-
-        foreach (var (name, expectedShort, expectedLong) in papers)
-        {
-            if (Math.Abs(shortSide - expectedShort) < 3 && Math.Abs(longSide - expectedLong) < 3)
-            {
-                return name;
-            }
-        }
-
-        return "Letter";
-    }
-
-    private static void CollectFonts(IReadOnlyList<Block> blocks, HashSet<string> fonts)
-    {
-        foreach (var block in blocks)
-        {
-            switch (block)
-            {
-                case IrParagraph paragraph:
-                    foreach (var inline in paragraph.Inlines)
-                    {
-                        if (inline is TextRun { Style.Family: { } family })
-                        {
-                            fonts.Add(family);
-                        }
-                    }
-
-                    break;
-
-                case IrTable table:
-                    foreach (var row in table.Rows)
-                    {
-                        foreach (var cell in row)
-                        {
-                            CollectFonts(cell.Blocks, fonts);
-                        }
-                    }
-
-                    break;
-            }
-        }
     }
 
     /// <summary>
