@@ -22,4 +22,12 @@
     <None Include="..\Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" LinkBase="Fixtures" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The document-building helpers both test projects use. Compiled in
+         rather than shared through a project, which for five helpers would
+         cost a build target to save nothing. Only Core types appear in there,
+         so this stays WPF-free. -->
+    <Compile Include="..\Shared\*.cs" LinkBase="Shared" />
+  </ItemGroup>
+
 </Project>

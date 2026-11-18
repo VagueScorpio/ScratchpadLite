@@ -24,4 +24,9 @@
     <None Include="..\Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" LinkBase="Fixtures" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Shared with ScratchpadLite.Core.Tests; see the note in that csproj. -->
+    <Compile Include="..\Shared\*.cs" LinkBase="Shared" />
+  </ItemGroup>
+
 </Project>

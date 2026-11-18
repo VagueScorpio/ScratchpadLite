@@ -3,6 +3,7 @@ using ScratchpadLite.Core.Formats.Odt;
 using ScratchpadLite.Core.Model;
 using Xunit;
 using Xunit.Abstractions;
+using static ScratchpadLite.Tests.Shared.Ir;
 
 namespace ScratchpadLite.Core.Tests;
 
@@ -144,9 +145,4 @@ public class SampleFilesTests(ITestOutputHelper output)
         new PageSetup(),
         new HashSet<string>());
 
-    private static Paragraph Para(string text, string styleName = "Normal", bool bold = false) => new()
-    {
-        StyleName = styleName,
-        Inlines = [new TextRun(text, new CharStyle { Bold = bold })],
-    };
 }
