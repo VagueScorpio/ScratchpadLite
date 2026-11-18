@@ -8,6 +8,7 @@ underneath. Old entries are never removed.
 Contents
 --------
 
+  v1.11 2026-11-18  Outside audit: dead code, duplication, footprint
   (n/a) 2026-11-14  A font bundle for the QA pass
   (n/a) 2026-11-14  RELEASE_ACCEPTANCE.md, and a checklist correction
   (n/a) 2026-11-14  The package licence check is gone; NuGet watched
@@ -24,6 +25,126 @@ Contents
   v1.2  2026-11-08  Phase 2: fonts
   v1.1  2026-11-08  Phase 1: editor core
   v1.0  2026-11-08  Phase 0: skeleton and pipeline
+--------------------------------------------------------------------------------
+v1.11  -  2026-11-18  -  Outside audit: dead code, duplication, footprint
+--------------------------------------------------------------------------------
+
+What
+----
+
+An outside optimization audit of the whole tree, applied. No feature changed,
+no file format changed, no user-facing text changed; 987 tests pass before and
+after, and every change was verified against them one at a time.
+
+  * Dead code removed, each proven unreferenced across all C# and all XAML and
+    checked for reflection, nameof and string lookup first:
+    FormattingMarks.UseInk (superseded by the pull-based AdoptInk),
+    ListCommands.CaretIsInList, ListCommands.EmptyItem,
+    ListCommands.SelectedItemsForTests (a test seam no test used), and
+    TabManager.NotifyChanged (a fourth raiser of an event already raised
+    inline three times).
+  * Duplication removed. CollectFonts and PaperFor were byte-identical private
+    copies in DocxReader and OdtReader; they are now Core/Formats/PageFacts.cs.
+    OdtWriter's five ForX methods shared an intern-and-name skeleton, now one
+    Intern helper. In the tests, MinimalPng had been copy-pasted into seven
+    files and Text and Document into five each; they are now
+    tests/Shared/IrHelpers.cs, compiled into both test projects.
+  * 11 unused using directives, one per file across 11 files.
+  * The published app no longer carries a Resources/ folder. Both files in it
+    are consumed elsewhere - default-styles.json is an EmbeddedResource read
+    with GetManifestResourceStream, and build.ps1 takes font-folder-README.txt
+    from the source tree - so the CopyToOutputDirectory lines shipped 3,522
+    bytes and a folder that nothing reads to every install.
+  * build.ps1 no longer puts .optimization/ in the source zip.
+  * Two comments corrected that described code which does not exist: AppPaths
+    claimed the font folder is "created with a README only when missing"
+    (nothing writes one; it ships in the zip), and Core.csproj listed
+    System.Text.Encoding.CodePages as a Phase 7 package when it was never
+    added.
+
+Measured on this PC, publishing the release build:
+
+    warm startup   695 ms, median of runs 2-5, spread 681 to 706.
+                   v1.10 measured 683 with a spread of 669 to 728, and the
+                   same code has measured 726 and 692 on other publishes. This
+                   is inside that noise: nothing was added to or taken off the
+                   path before the first frame.
+    budget         1000 ms warm.
+    idle memory    163.7 MB working set, 89.5 MB private. Up from v1.10's
+                   158.9 because fonts/ now holds the five OFL families added
+                   for the QA pass; twelve more font files to prepare.
+    .exe           170.2 MB, unchanged.
+    zip            69.3 MB, up 1.0 from v1.10 for the same reason - the font
+                   bundle, not this work.
+    source zip     0.69 MB, 218 files.
+
+    C# code        35,225 lines, down 171. Comments 9,355, up 87.
+
+Why
+---
+
+The line count is the smallest part of this. 171 lines out of 35,396 is half a
+percent, and anyone expecting an audit to find fat here would be disappointed:
+production duplication at a seven-line window came to two real clones in 24,000
+lines, there is no commented-out code, no sync-over-async, and the idioms are
+current. What the audit was worth is the handful of places where two copies of
+something had started to disagree, because that is the kind of defect that does
+not announce itself.
+
+PaperFor is the clearest case. Two identical copies meant a paper size added to
+one reader silently did not exist in the other. Nothing was broken yet, and
+nothing would have told anybody when it was.
+
+MinimalPng is the same shape in the tests. Seven copies of the same 69 bytes,
+and their comments had already drifted - one called it a red pixel, one said
+only "a one-pixel PNG", five said nothing. Decoding it settled the question:
+1x1 Bgr24, raw bytes 00 00 FF. Red. That is now written down once.
+
+Comments went up while code went down, and that is deliberate. A duplicate
+removed without recording why it existed is an invitation to put it back. The
+constraint that keeps the shared test helpers free of WPF - Core.Tests targets
+plain net10.0 precisely so the compiler enforces Section 4.2 - is written into
+the file that would otherwise be the natural place to break it.
+
+How
+---
+
+Six whole-codebase mechanical passes, every candidate verified by hand before
+it was called a finding: a declared-member sweep over 2,126 declarations
+cross-referenced against all C# and XAML; clone detection at seven- and
+eight-line normalised windows; helper bodies grouped by normalised body rather
+than by name; 22 verbosity patterns; long-method detection; and IDE0005 raised
+to a warning through a temporary .editorconfig, since it is silent by default
+and this project has none. That file was an instrument and was removed.
+
+Grouping test helpers by body rather than by name is what kept this safe. Save,
+Write, Type and Load share names across test files but not code, and TabTests
+has a Text that differs from the other five. None of those were touched. The
+removal itself was exact multi-line text replacement, so a copy that had
+drifted would have been reported rather than silently deleted.
+
+One finding was reverted and is worth recording so nobody tries it again.
+RelayCommand.RaiseCanExecuteChanged has no callers, but deleting it fails the
+build with CS0067, "the event CanExecuteChanged is never used", which
+TreatWarningsAsErrors makes an error. ICommand requires the event and C# warns
+when a declared event is never raised, so the method is load-bearing for the
+compiler rather than surplus. No-op accessors would compile and cost three
+lines more than they save; delegating to CommandManager.RequerySuggested would
+change behaviour. It stays.
+
+Two things were found and deliberately not changed, because either answer
+changes what the program does. PaperFor recognises five papers while
+Printing.Papers and the Page Setup dialog have four, so a file that genuinely
+is Tabloid reads as Tabloid and prints at Letter size; that is noted in
+PageFacts.cs. And the two .pdb files, 473 KB of the zip, stay: removing them
+turns a crash report from file-and-line into hex offsets, on an unsigned app
+that ships to people who will not be reading a stack trace themselves.
+
+The audit's own working files are in .optimization/ - LEDGER.md has every
+finding with the proof for it, REPORT.md the before-and-after. Neither is
+committed, and build.ps1 now keeps them out of the zip.
+
+
 --------------------------------------------------------------------------------
 unreleased  -  2026-11-14  -  A font bundle for the QA pass
 --------------------------------------------------------------------------------
