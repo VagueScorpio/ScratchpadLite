@@ -232,9 +232,6 @@ internal sealed class TabManager
         Activate(_tabs[next]);
     }
 
-    /// <summary>Tells the strip a header's text or dirty mark has changed.</summary>
-    internal void NotifyChanged() => TabsChanged?.Invoke(this, EventArgs.Empty);
-
     /// <summary>Every tab with unsaved changes, for the dialog on exit (Section 6.12).</summary>
     internal IReadOnlyList<DocumentSession> Modified => [.._tabs.Where(t => t.IsDirty)];
 }
