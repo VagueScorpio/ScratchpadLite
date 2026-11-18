@@ -45,9 +45,11 @@
     <InternalsVisibleTo Include="ScratchpadLite.App.Tests" />
   </ItemGroup>
 
-  <ItemGroup>
-    <None Update="Resources\default-styles.json" CopyToOutputDirectory="PreserveNewest" />
-    <None Update="Resources\font-folder-README.txt" CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
+  <!-- Resources\ is deliberately NOT copied to the output. Both files in there
+       are consumed somewhere else: default-styles.json is an EmbeddedResource
+       in Core and read with GetManifestResourceStream, and build.ps1 copies
+       font-folder-README.txt out of the source tree, not out of the build. A
+       CopyToOutputDirectory on either one only shipped a Resources folder that
+       nothing reads to every install. -->
 
 </Project>
